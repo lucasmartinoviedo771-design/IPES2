@@ -1,0 +1,26 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<div class="p-4">
+  <h1 class="text-xl font-semibold mb-4">Estudiante nuevo</h1>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% for field in form %}
+        <div>
+          <label class="block text-sm font-medium mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<p class="text-xs text-slate-500 mt-1">{{ field.help_text }}</p>{% endif %}
+          {% for e in field.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-6 flex gap-2">
+      <button type="submit" class="px-4 py-2 rounded bg-slate-800 text-white">Guardar</button>
+      <a href="{% url 'ui:estudiantes_list' %}" class="px-4 py-2 rounded border">Volver al listado</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
