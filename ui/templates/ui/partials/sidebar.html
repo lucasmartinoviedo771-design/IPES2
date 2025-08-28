@@ -1,6 +1,6 @@
 {% load icons %}
 <nav class="space-y-6">
-  {% for section in menu %}
+  {% for section in menu|default:menu_sections %}
     <div class="space-y-2">
       <div class="px-2 text-[11px] uppercase tracking-wide font-semibold text-slate-500">{{ section.title }}</div>
       <ul class="space-y-2">
