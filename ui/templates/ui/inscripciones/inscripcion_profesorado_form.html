@@ -40,19 +40,26 @@
       <div class="mt-6 rounded-xl border p-4">
         <h2 class="font-semibold mb-3">Requisitos de Ingreso</h2>
 
-        {# Bloque general (se ocultará en JS si es Certificación Docente) #}
-        <div id="req-general" class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+        {# Requisitos comunes a todas las carreras #}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
           <label class="flex items-center gap-2">{{ form.req_dni }} <span>{{ form.req_dni.label }}</span></label>
           <label class="flex items-center gap-2">{{ form.req_cert_med }} <span>{{ form.req_cert_med.label }}</span></label>
           <label class="flex items-center gap-2">{{ form.req_fotos }} <span>{{ form.req_fotos.label }}</span></label>
           <label class="flex items-center gap-2">{{ form.req_folios }} <span>{{ form.req_folios.label }}</span></label>
-
-          <label id="row-titulo-sec" class="flex items-center gap-2">{{ form.req_titulo_sec }} <span>{{ form.req_titulo_sec.label }}</span></label>
-          <label id="row-titulo-tramite" class="flex items-center gap-2">{{ form.req_titulo_tramite }} <span>{{ form.req_titulo_tramite.label }}</span></label>
-          <label id="row-adeuda" class="flex items-center gap-2">{{ form.req_adeuda }} <span>{{ form.req_adeuda.label }}</span></label>
         </div>
 
-        <div id="adeuda-extra" class="mt-3 hidden">
+        {# Bloque de Título Secundario (se oculta para Cert. Docente) #}
+        <div id="id_grupo_titulo_secundario" class="mt-4">
+          <h3 class="font-medium text-sm text-slate-600 border-t pt-3 mt-3">Documentación de Nivel Secundario</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 mt-2">
+              <label class="flex items-center gap-2">{{ form.req_titulo_sec }} <span>{{ form.req_titulo_sec.label }}</span></label>
+              <label class="flex items-center gap-2">{{ form.req_titulo_tramite }} <span>{{ form.req_titulo_tramite.label }}</span></label>
+              <label class="flex items-center gap-2">{{ form.req_adeuda }} <span>{{ form.req_adeuda.label }}</span></label>
+          </div>
+        </div>
+
+        {# Detalles si adeuda materias (oculto por defecto) #}
+        <div id="id_grupo_adeuda_materias" class="mt-3 hidden">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium mb-1">{{ form.req_adeuda_mats.label }}</label>
@@ -65,14 +72,17 @@
           </div>
         </div>
 
-        {# Bloque específico Certificación Docente #}
-        <div id="req-cert-docente" class="grid grid-cols-1 md:grid-cols-2 gap-x-6 hidden">
-          <label class="flex items-center gap-2">{{ form.req_titulo_sup }} <span>{{ form.req_titulo_sup.label }}</span></label>
-          <label class="flex items-center gap-2">{{ form.req_incumbencias }} <span>{{ form.req_incumbencias.label }}</span></label>
+        {# Bloque específico Certificación Docente (oculto por defecto) #}
+        <div id="id_grupo_titulo_superior" class="hidden mt-4">
+            <h3 class="font-medium text-sm text-slate-600 border-t pt-3 mt-3">Documentación de Nivel Superior</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 mt-2">
+                <label class="flex items-center gap-2">{{ form.req_titulo_sup }} <span>{{ form.req_titulo_sup.label }}</span></label>
+                <label class="flex items-center gap-2">{{ form.req_incumbencias }} <span>{{ form.req_incumbencias.label }}</span></label>
+            </div>
         </div>
 
         <!-- nuevo checkbox 'Condición' (cuenta para ser REGULAR) -->
-        <div class="mt-3">
+        <div class="mt-4 border-t pt-4">
           <label class="flex items-center gap-2">{{ form.req_condicion }} <span>{{ form.req_condicion.label }}</span></label>
         </div>
       </div>
