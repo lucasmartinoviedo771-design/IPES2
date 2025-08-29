@@ -1,7 +1,7 @@
 # ui/forms.py
 from django import forms
 from django.apps import apps
-from django.forms.widgets import ClearableFileInput, DateInput, TextInput, EmailInput, NumberInput, Select, Textarea
+from django.forms.widgets import ClearableFileInput, DateInput, TextInput, EmailInput, NumberInput, Textarea
 from django.forms import CheckboxInput, FileInput
 from datetime import date
 
@@ -316,39 +316,41 @@ class InscripcionProfesoradoForm(forms.ModelForm):
         return cleaned
 
     # ---------- Estado administrativo ----------
-    def compute_estado_admin(self):
-        cd = getattr(self, "cleaned_data", {})
-        prof = cd.get("profesorado")
+    def _calculate_estado_from_data(self, data):
+        prof = data.get("profesorado")
         label = (str(prof).strip() if prof else "")
         is_cert_docente = (label == CERT_DOCENTE_LABEL)
 
         # requisito común: “condición” marcado
-        cond_ok = bool(cd.get("req_condicion"))
+        cond_ok = bool(data.get("req_condicion"))
 
         if is_cert_docente:
             # generales + específicos de certificación
             base_ok = all([
-                cd.get("req_dni"),
-                cd.get("req_cert_med"),
-                cd.get("req_fotos"),
-                cd.get("req_folios"),
-                cd.get("req_titulo_sup"),
-                cd.get("req_incumbencias"),
+                data.get("req_dni"),
+                data.get("req_cert_med"),
+                data.get("req_fotos"),
+                data.get("req_folios"),
+                data.get("req_titulo_sup"),
+                data.get("req_incumbencias"),
             ])
-            cond_flags = False  # no hay “trámite/adeuda” aquí
+            cond_flags = False
         else:
             # generales + título secundario (o condicional si trámite/adeuda)
             base_ok = all([
-                cd.get("req_dni"),
-                cd.get("req_cert_med"),
-                cd.get("req_fotos"),
-                cd.get("req_folios"),
-                cd.get("req_titulo_sec"),
+                data.get("req_dni"),
+                data.get("req_cert_med"),
+                data.get("req_fotos"),
+                data.get("req_folios"),
+                data.get("req_titulo_sec"),
             ])
-            cond_flags = any([cd.get("req_titulo_tramite"), cd.get("req_adeuda")])
+            cond_flags = any([data.get("req_titulo_tramite"), data.get("req_adeuda")])
 
         is_regular = base_ok and not cond_flags and cond_ok
         return ("REGULAR" if is_regular else "CONDICIONAL"), is_cert_docente
+
+    def compute_estado_admin(self):
+        return self._calculate_estado_from_data(self.cleaned_data)
 
 
 class CorrelatividadesForm(forms.Form):

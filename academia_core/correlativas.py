@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Iterable, List, Optional, Tuple, Dict, Any
 
 from django.apps import apps
-from django.conf import settings
 from django.db.models import Q
 
 # Estados "fuerza" para comparar mínimos

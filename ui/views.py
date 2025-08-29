@@ -17,7 +17,7 @@ from django.db import transaction
 from django.apps import apps
 
 # Modelos del core
-from academia_core.models import Estudiante, Docente, EstudianteProfesorado
+from academia_core.models import Estudiante, Docente
 
 # Formularios de la app UI
 # NOTA: asegúrate de que estos nombres existan tal cual en ui/forms.py
@@ -250,9 +250,13 @@ class InscripcionProfesoradoView(RolesPermitidosMixin, LoginRequiredMixin, Creat
         form = ctx.get("form")
         estado = None
         is_cert = False
-        if form and form.is_bound and form.is_valid():
-            estado, is_cert = form.compute_estado_admin()
-        ctx["estado_admin"] = estado  # "REGULAR" / "CONDICIONAL" / None
+        if form:
+            if form.is_bound and form.is_valid():
+                estado, is_cert = form.compute_estado_admin()
+            elif not form.is_bound and form.initial:
+                # Use the new method with initial data
+                estado, is_cert = form._calculate_estado_from_data(form.initial)
+        ctx["estado_admin"] = estado
         ctx["is_cert_docente"] = is_cert
         ctx["CERT_DOCENTE_LABEL"] = CERT_DOCENTE_LABEL
         return ctx

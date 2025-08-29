@@ -1,10 +1,7 @@
 # academia_core/admin.py
-from datetime import date
 
 from django.contrib import admin
-from django.forms import ModelForm, ValidationError
 from django.utils.html import format_html
-from django.db.models import Q
 
 from .models import (
     Profesorado,
@@ -17,7 +14,6 @@ from .models import (
     Docente,
     DocenteEspacio,
     UserProfile,
-    EstadoInscripcion,
     Correlatividad,
     Horario,
     Condicion,

@@ -12,4 +12,4 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(self.style.SUCCESS(f"Creado grupo: {name}"))
             else:
-                self.stdout.write(f"OK grupo ya existe: {name}"))
+                self.stdout.write(f"OK grupo ya existe: {name}")

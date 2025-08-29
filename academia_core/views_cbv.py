@@ -2,7 +2,6 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from academia_core.auth_mixins import StaffOrGroupsRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.db.models.deletion import ProtectedError
 from django.urls import reverse_lazy
@@ -15,10 +14,7 @@ from .models import (
     Actividad,
     EspacioCurricular,  # ← Materias
     # === para Calificaciones (Movimiento) y alcances ===
-    Movimiento,
-    EstudianteProfesorado,
-    DocenteEspacio,
-)
+    )
 from .forms_espacios import EspacioForm  # ← Form para Materias/Espacios
 
 # ---------------- helpers de contexto para usar panel.html ----------------

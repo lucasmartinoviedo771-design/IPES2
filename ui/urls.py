@@ -3,7 +3,7 @@ from .views import (
     DashboardView,
     EstudianteListView, EstudianteDetailView, NuevoEstudianteView,
     DocenteListView, NuevoDocenteView,
-    InscribirCarreraView, InscribirMateriaView, InscribirFinalView, InscripcionProfesoradoView,
+    InscribirMateriaView, InscribirFinalView, InscripcionProfesoradoView,
     CartonEstudianteView, HistoricoEstudianteView,
     SwitchRoleView,
     CorrelatividadesView,
@@ -43,4 +43,5 @@ urlpatterns = [
     path("api/cohortes", api.api_cohortes_por_plan, name="api_cohortes"),
     path("api/materias", api.api_materias_por_plan, name="api_materias_por_plan"),
     path("api/correlatividades", api.api_correlatividades_por_espacio, name="api_correlatividades_por_espacio"),
+    path("api/calcular-estado-administrativo/", api.api_calcular_estado_administrativo, name="api_calcular_estado_administrativo"),
 ]

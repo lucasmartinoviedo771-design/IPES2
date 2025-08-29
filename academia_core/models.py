@@ -1,12 +1,11 @@
 # academia_core/models.py
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from django.conf import settings
 
 import os
-import re
 
-from django.core.exceptions import ValidationError, FieldError
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models import F, Q

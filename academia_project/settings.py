@@ -109,7 +109,6 @@ ROOT_URLCONF = "academia_project.urls"
 # -----------------------------
 # Templates
 # -----------------------------
-from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 TEMPLATES = [

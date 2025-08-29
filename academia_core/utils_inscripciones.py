@@ -1,5 +1,4 @@
 from typing import Iterable
-from django.db.models import Q
 from academia_core.models import (
     EspacioCurricular,
     EstudianteProfesorado,

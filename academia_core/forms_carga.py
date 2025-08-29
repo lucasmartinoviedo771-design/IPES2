@@ -1,7 +1,5 @@
 # academia_core/forms_carga.py
-from decimal import Decimal
 from django import forms
-from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.urls import reverse
 from .models import EstudianteProfesorado

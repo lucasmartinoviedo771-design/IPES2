@@ -63,7 +63,6 @@ class CorrelatividadForm(forms.Form):
 
     def save(self, commit=True):
         # This is a custom form, not a ModelForm, so we need to handle saving manually
-        profesorado = self.cleaned_data['profesorado']
         plan = self.cleaned_data['plan']
         materia_principal = self.cleaned_data['materia_principal']
         correlativas_regulares = self.cleaned_data['correlativas_regulares']

@@ -258,3 +258,29 @@ def api_correlatividades_por_espacio(request):
     except Exception as e:
         logger.exception(f"api_correlatividades_por_espacio: error para espacio_id={esp_id}")
         return HttpResponseBadRequest(f"Error en servidor: {e}")
+
+import json
+from django.views.decorators.http import require_POST
+from .forms import InscripcionProfesoradoForm
+
+@login_required
+@require_POST
+def api_calcular_estado_administrativo(request):
+    """
+    POST /ui/api/calcular-estado-administrativo/
+    Receives form data and returns the calculated administrative status.
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("Invalid JSON")
+
+    # We don't need to validate the whole form, just calculate the status
+    # We can instantiate the form without arguments and call the method
+    form = InscripcionProfesoradoForm()
+    estado, is_cert_docente = form._calculate_estado_from_data(data)
+
+    return JsonResponse({
+        "estado": estado,
+        "is_cert_docente": is_cert_docente,
+    })

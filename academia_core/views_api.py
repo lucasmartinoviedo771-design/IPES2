@@ -6,10 +6,7 @@ from academia_core.models import EspacioCurricular, PlanEstudios, Estudiante, Pr
 from academia_core.eligibilidad import habilitado
 from django.apps import apps
 
-Estudiante = apps.get_model("academia_core", "Estudiante")
-Docente = apps.get_model("academia_core", "Docente")
-Profesorado = apps.get_model("academia_core", "Profesorado")
-PlanEstudios = apps.get_model("academia_core", "PlanEstudios")
+
 
 
 @require_GET

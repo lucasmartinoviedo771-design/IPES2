@@ -1,5 +1,5 @@
 # academia_core/urls.py
-from django.urls import path, include
+from django.urls import path
 
 from .views import (
     carton_primaria_por_dni,
@@ -37,7 +37,6 @@ from .views_api import (
     api_get_espacio_curricular_detalle,
     api_get_movimientos_estudiante,
     api_espacios_habilitados,
-    api_inscribir_espacio,
     api_get_correlatividades,
     api_get_planes_for_profesorado,
     api_get_espacios_for_plan,

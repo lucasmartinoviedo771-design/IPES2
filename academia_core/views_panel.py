@@ -1,27 +1,19 @@
 from __future__ import annotations
 from datetime import date
 import json
-import unicodedata
-from collections import defaultdict
-import io
 import os
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
-from django.db.models import Q
-from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
-from django.shortcuts import render, redirect, get_object_or_404
-from django.template.loader import get_template
-from django.utils.text import slugify
-from django.views.decorators.http import require_GET, require_POST
-from xhtml2pdf import pisa
+from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseForbidden
+from django.shortcuts import render, redirect
+from django.views.decorators.http import require_POST
 
 from .models import (
-    Profesorado, PlanEstudios, Estudiante, EstudianteProfesorado,
-    EspacioCurricular, Movimiento, Docente, DocenteEspacio, InscripcionEspacio,
-    Correlatividad, Horario
+    Profesorado, Estudiante, EstudianteProfesorado,
+    EspacioCurricular, InscripcionEspacio,
+    Correlatividad
 )
 from .forms_admin import EstudianteCreateForm
 from .forms_correlativas import CorrelatividadForm
@@ -75,7 +67,7 @@ def panel(request: HttpRequest, **kwargs) -> HttpResponse:
             form = EstudianteCreateForm(request.POST, request.FILES)
             if form.is_valid():
                 form.save()
-                messages.success(request, f"Estudiante creado con éxito.")
+                messages.success(request, "Estudiante creado con éxito.")
                 return redirect('panel?action=section_est')
         else:
             form = EstudianteCreateForm()
@@ -115,7 +107,7 @@ def panel(request: HttpRequest, **kwargs) -> HttpResponse:
                 form.save()
                 messages.success(request, 'Correlatividades guardadas con éxito.')
                 # Redirect to maintain state
-                redirect_url = f'/panel/?action=section_correlatividades'
+                redirect_url = '/panel/?action=section_correlatividades'
                 if form.cleaned_data.get('profesorado'):
                     redirect_url += f'&profesorado={form.cleaned_data["profesorado"].id}'
                 if form.cleaned_data.get('plan'):
@@ -156,7 +148,6 @@ def alumno_home(request):
     if request.user.is_superuser and not is_student:
         return render(request, "alumno_home.html", {"estudiante": None, "items": []})
     est = perfil.estudiante
-    inscs = EstudianteProfesorado.objects.filter(estudiante=est).select_related("profesorado")
     items = []
     return render(request, "alumno_home.html", {"estudiante": est, "items": items})
 

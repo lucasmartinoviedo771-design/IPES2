@@ -1,4 +1,7 @@
-import csv, re, unicodedata, difflib
+import csv
+import re
+import unicodedata
+import difflib
 from collections import defaultdict
 from academia_core.models import Profesorado, PlanEstudios, EspacioCurricular
 

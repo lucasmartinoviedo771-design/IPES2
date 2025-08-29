@@ -21,7 +21,6 @@ from .models import (
     EstudianteProfesorado,
     EspacioCurricular,
     Movimiento,
-    Docente,
     DocenteEspacio,
 )
 

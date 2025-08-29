@@ -53,17 +53,17 @@ for esp in missing_espacios:
 
 # Print as Python code to create objects
 print(f"# Missing EspacioCurricular objects for {profesorado_name} (Plan {plan_resolucion})")
-print(f"# Run this in Django shell or a management command")
-print(f"# from academia_core.models import Profesorado, PlanEstudios, EspacioCurricular")
+print("# Run this in Django shell or a management command")
+print("# from academia_core.models import Profesorado, PlanEstudios, EspacioCurricular")
 print(f"# prof = Profesorado.objects.get(nombre='{profesorado_name}')")
 print(f"# plan = PlanEstudios.objects.get(profesorado=prof, resolucion='{plan_resolucion}')")
 
 for esp in unique_espacios:
     # Placeholder for hours and libre_habilitado
-    print(f"EspacioCurricular.objects.get_or_create(")
-    print(f"    plan=plan,")
+    print("EspacioCurricular.objects.get_or_create(")
+    print("    plan=plan,")
     print(f"    anio='{esp['anio']}',")
     print(f"    cuatrimestre='{esp['cuatrimestre']}',")
     print(f"    nombre='{esp['name']}',")
     print(f"    defaults={{ 'horas': 0, 'formato': '{esp['format']}', 'libre_habilitado': False }}")
-    print(f")")
+    print(")")

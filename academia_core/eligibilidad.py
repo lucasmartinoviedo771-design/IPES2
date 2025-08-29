@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Tuple, Set, Dict, Any, List
+from typing import Optional, Tuple, Set, Any, List
 from django.apps import apps
 from django.db.models import Q, Model
 from academia_core.models import Correlatividad, EspacioCurricular

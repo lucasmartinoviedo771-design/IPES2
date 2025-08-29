@@ -1,6 +1,6 @@
 # academia_core/forms_espacios.py
 from django import forms
-from .models import EspacioCurricular, Profesorado, PlanEstudios
+from .models import EspacioCurricular
 
 
 class EspacioForm(forms.ModelForm):

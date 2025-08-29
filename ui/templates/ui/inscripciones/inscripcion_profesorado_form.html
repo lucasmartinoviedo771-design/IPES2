@@ -98,4 +98,56 @@
 window.CERT_DOCENTE_LABEL = "{{ CERT_DOCENTE_LABEL|default:'Certificación Docente para la Educación Secundaria' }}";
 </script>
 <script src="{% static 'ui/js/inscripcion_carrera.js' %}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form[data-planes-url]');
+    if (!form) return;
+
+    const regularPill = document.getElementById('pill-regular');
+    const condPill = document.getElementById('pill-cond');
+    const apiUrl = "{% url 'ui:api_calcular_estado_administrativo' %}";
+    const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    async function updateStatus() {
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        // Convert checkbox values to boolean
+        form.querySelectorAll('input[type=checkbox]').forEach(checkbox => {
+            data[checkbox.name] = checkbox.checked;
+        });
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+                console.error('Error updating status:', response.statusText);
+                return;
+            }
+
+            const result = await response.json();
+
+            regularPill.classList.toggle('hidden', result.estado !== 'REGULAR');
+            condPill.classList.toggle('hidden', result.estado !== 'CONDICIONAL');
+
+        } catch (error) {
+            console.error('Error updating status:', error);
+        }
+    }
+
+    // Initial status check
+    updateStatus();
+
+    // Listen for changes on all relevant form elements
+    form.addEventListener('change', updateStatus);
+});
+</script>
 {% endblock %}

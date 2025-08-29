@@ -1,14 +1,13 @@
 import json
 import os
 import re
-from django.apps import apps
+import django
 
 # Configure Django settings (if not already configured)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'academia_project.settings')
-import django
 django.setup()
 
-from academia_core.models import Profesorado, PlanEstudios, EspacioCurricular, Correlatividad
+from academia_core.models import Profesorado, PlanEstudios, EspacioCurricular, Correlatividad  # noqa: E402
 
 # Load the parsed JSON data
 with open(r'C:\proyectos\academia\parsed_correlatividades.json', 'r', encoding='utf-8') as f:

@@ -1,4 +1,5 @@
-import csv, re
+import csv
+import re
 
 from academia_core.models import (
     Profesorado,

@@ -12,9 +12,6 @@ from academia_core.models import (
     EspacioCurricular,
     Movimiento,
     Condicion,
-    InscripcionEspacio,
-    Docente,
-    UserProfile,
 )
 
 
