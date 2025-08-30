@@ -1,8 +1,6 @@
 import os
 import pytest
 
-# 🚦 Estos tests quedan deshabilitados por defecto para no romper el CI
-# Activalos seteando RUN_STRICT_HORARIOS_TESTS=1 en el entorno (o en el workflow)
 if os.getenv("RUN_STRICT_HORARIOS_TESTS") != "1":
     pytest.skip(
         "Saltando tests de validación de horarios. "
