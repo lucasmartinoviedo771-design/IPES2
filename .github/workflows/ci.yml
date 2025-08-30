@@ -58,9 +58,9 @@ jobs:
         run: |
           python "${{ steps.where.outputs.manage }}" check --deploy --fail-level WARNING || true
 
-        - name: Tests (pytest)
+      - name: Tests (pytest)   # ← alineado con los otros - name:
         env:
           DJANGO_SETTINGS_MODULE: academia_project.settings
           USE_SQLITE_FOR_TESTS: "1"
-          RUN_STRICT_HORARIOS_TESTS: "0"   # asegurar que NO se ejecuten por ahora
+          RUN_STRICT_HORARIOS_TESTS: "0"
         run: pytest -q --nomigrations
