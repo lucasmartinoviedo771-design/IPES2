@@ -3,11 +3,10 @@ from pathlib import Path
 import os
 from django.core.exceptions import ImproperlyConfigured
 
+# =========== Paths ===========
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# -----------------------------
-# Logging (silenciar ruidos puntuales)
-# -----------------------------
+# =========== Logging (silenciar ruidos puntuales) ===========
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -26,24 +25,27 @@ LOGGING = {
     },
 }
 
-# -----------------------------
-# .env (opcional)
-# -----------------------------
+# =========== .env (opcional, usando python-dotenv) ===========
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except Exception:
     pass
 
-# -----------------------------
-# Seguridad / Debug
-# -----------------------------
+# Helpers para env
 def getenv_bool(name: str, default: bool = False) -> bool:
     v = os.getenv(name)
     if v is None:
         return default
     return str(v).lower() in {"1", "true", "t", "yes", "y"}
 
+def getenv_list(name: str, default: list[str] | None = None) -> list[str]:
+    raw = os.getenv(name)
+    if not raw:
+        return default or []
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+# =========== Seguridad / Debug ===========
 DEBUG = getenv_bool("DJANGO_DEBUG", default=True)
 
 DEFAULT_DEV_SECRET = "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*(((@vc1a8_"
@@ -51,31 +53,58 @@ DEFAULT_DEV_SECRET = "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*((
 if DEBUG:
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", DEFAULT_DEV_SECRET)
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "academia.local"]
+    # Permite http en dev (puerto 8000)
+    CSRF_TRUSTED_ORIGINS = getenv_list(
+        "DJANGO_CSRF_TRUSTED_ORIGINS",
+        default=[
+            "http://127.0.0.1:8000",
+            "http://localhost:8000",
+            "http://academia.local:8000",
+        ],
+    )
 else:
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
     if not SECRET_KEY:
         raise ImproperlyConfigured("Set the DJANGO_SECRET_KEY environment variable")
+
     hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
     if not hosts:
         raise ImproperlyConfigured("Set DJANGO_ALLOWED_HOSTS (comma separated)")
     ALLOWED_HOSTS = [h.strip() for h in hosts.split(",") if h.strip()]
 
+    # CSRF_TRUSTED_ORIGINS (preferir proporcionarlo por env; si no, derivar de ALLOWED_HOSTS con https)
+    csrf_from_env = getenv_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+    if csrf_from_env:
+        CSRF_TRUSTED_ORIGINS = csrf_from_env
+    else:
+        # Deriva https://<host> para cada host (Django requiere esquema)
+        CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if "://" not in h]
+
+# Cookies y seguridad (conserva dev fácil y prod endurecido)
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:8000",
-    "http://localhost:8000",
-    "http://academia.local:8000",
-]
+# Redirect HTTPS / HSTS (configurable por env, con defaults seguros en prod)
+SECURE_SSL_REDIRECT = getenv_bool("DJANGO_SECURE_SSL_REDIRECT", default=not DEBUG)
+SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", 31536000 if not DEBUG else 0))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG and SECURE_HSTS_SECONDS > 0
+SECURE_HSTS_PRELOAD = not DEBUG and SECURE_HSTS_SECONDS >= 31536000
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
-SECURE_SSL_REDIRECT = False
-SECURE_HSTS_SECONDS = 0
+# Si estás detrás de un proxy que setea X-Forwarded-Proto, habilitalo por env:
+# DJANGO_SECURE_PROXY_SSL_HEADER="HTTP_X_FORWARDED_PROTO,https"
+_proxy_hdr = os.getenv("DJANGO_SECURE_PROXY_SSL_HEADER")
+if _proxy_hdr:
+    try:
+        name, value = [x.strip() for x in _proxy_hdr.split(",", 1)]
+        SECURE_PROXY_SSL_HEADER = (name, value)  # type: ignore[var-annotated]
+    except Exception:
+        raise ImproperlyConfigured("DJANGO_SECURE_PROXY_SSL_HEADER debe tener formato 'HEADER,valor'")
 
-# -----------------------------
-# Apps
-# -----------------------------
+# =========== Apps ===========
 INSTALLED_APPS = [
     # Django
     "django.contrib.admin",
@@ -92,9 +121,7 @@ INSTALLED_APPS = [
     "academia_horarios",
 ]
 
-# -----------------------------
-# Middleware
-# -----------------------------
+# =========== Middleware ===========
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -107,17 +134,11 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "academia_project.urls"
 
-# -----------------------------
-# Templates
-# -----------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent
-
+# =========== Templates ===========
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        # Directorio(s) de templates a nivel de proyecto (opcional)
         "DIRS": [BASE_DIR / "templates"],
-        # Busca automáticamente en 'templates' dentro de cada app instalada
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -125,7 +146,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # Opcionales útiles:
                 "django.template.context_processors.i18n",
                 "django.template.context_processors.media",
                 "django.template.context_processors.static",
@@ -135,7 +155,6 @@ TEMPLATES = [
                 "ui.context_processors.menu",
                 "ui.context_processors.ui_globals",
             ],
-            # Cargar tags/filters globales (opcional)
             "builtins": [
                 "ui.templatetags.icons",
             ],
@@ -143,12 +162,9 @@ TEMPLATES = [
     },
 ]
 
-
 WSGI_APPLICATION = "academia_project.wsgi.application"
 
-# -----------------------------
-# Base de datos (MySQL)
-# -----------------------------
+# =========== Base de datos (MySQL) ===========
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
@@ -164,9 +180,7 @@ DATABASES = {
     }
 }
 
-# -----------------------------
-# Password validators
-# -----------------------------
+# =========== Password validators ===========
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -174,39 +188,29 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# -----------------------------
-# i18n
-# -----------------------------
+# =========== i18n ===========
 LANGUAGE_CODE = "es-ar"
 TIME_ZONE = "America/Argentina/Buenos_Aires"
 USE_I18N = True
 USE_TZ = True
 
-# -----------------------------
-# Static & Media
-# -----------------------------
+# =========== Static & Media ===========
 STATIC_URL = "/static/"
-
-# Agrega solo las carpetas de estáticos que existan para evitar warnings
 _static_candidates = [
-    BASE_DIR / "ui" / "static",  # donde suele estar ui/img/avatar-placeholder.svg, etc.
-    BASE_DIR / "static",         # opcional si la usás
+    BASE_DIR / "ui" / "static",
+    BASE_DIR / "static",
 ]
 STATICFILES_DIRS = [p for p in _static_candidates if p.exists()]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# -----------------------------
-# Login / Logout
-# -----------------------------
+# =========== Login / Logout ===========
 LOGIN_URL = "login"              # o "ui:login" si tu URL está namespaced
 LOGIN_REDIRECT_URL = "/dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
-# -----------------------------
-# DRF (básico)
-# -----------------------------
+# =========== DRF (básico) ===========
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -216,7 +220,5 @@ REST_FRAMEWORK = {
     ],
 }
 
-# -----------------------------
-# Varios
-# -----------------------------
+# =========== Varios ===========
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
