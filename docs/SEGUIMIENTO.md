@@ -1,82 +1,67 @@
-# Seguimiento IPES2
+# Seguimiento del Proyecto - Sistema de Gestión Académica
 
+## Fecha de Actualización: 30 de agosto de 2025
 
-> Actualizado: 2025-08-30
+Este documento proporciona una visión general del estado actual del proyecto del Sistema de Gestión Académica, destacando las mejoras recientes, los cambios necesarios, las futuras mejoras planificadas y las prioridades.
 
+---
 
-## Estado por Fase
-- [ ] F0 Fundaciones — notas:
-- [ ] F1 Horarios — notas:
-- [ ] F2 Inscripción — notas:
-- [ ] F3 Comisiones — notas:
-- [ ] F4 Docentes — notas:
-- [ ] F5 Notas — notas:
-- [ ] F6 Paneles — notas:
-- [ ] F7 KPIs — notas:
-- [ ] F8 Endurecimiento — notas:
+## 1. Estado Actual del Proyecto
 
+El proyecto es un sistema de gestión académica robusto, desarrollado sobre el framework Django, diseñado para administrar los procesos educativos de una institución. Se estructura en módulos principales:
 
-## Cambios Recientes (30 de Agosto de 2025)
+*   **`academia_core`**: Módulo central que maneja las funcionalidades académicas fundamentales, incluyendo la gestión de estudiantes, cursos, inscripciones, calificaciones, planes de estudio y correlatividades.
+*   **`academia_horarios`**: Módulo dedicado a la gestión de horarios, comisiones, docentes y asignación de espacios.
+*   **Infraestructura**: Utiliza un entorno virtual (`.venv`) para la gestión de dependencias (`requirements.txt`) y `manage.py` como punto de entrada para las operaciones de Django. La evolución del esquema de la base de datos se gestiona a través de migraciones (`migrations`).
 
-### 1. Refactorización de Gestión de Horarios (Comisiones)
-- **API Backend para Bloques Horarios:**
-  - Implementada `timeslots_api` en `views.py` para proveer bloques horarios filtrados por día/turno.
-  - Añadido patrón de URL para `timeslots_api` en `urls.py`.
-  - Mejoradas funciones `_norm_dia` y `_norm_turno` para manejo robusto de entradas.
-  - Corregidas claves del diccionario `TURNOS` en `views.py` para coincidir con valores del frontend.
-  - Solucionado problema de enrutamiento (`panel/panel/` duplicado) que causaba errores 404.
-- **Refactorización de Formulario (`HorarioInlineForm`):**
-  - Reemplazado `HorarioClaseForm` (ModelForm) por `HorarioInlineForm` (forms.Form) en `forms.py`.
-  - Implementados métodos `__init__`, `clean` y `save` personalizados en `HorarioInlineForm`.
-  - Actualizadas definiciones de campos (`turno`, `dia`, `bloque`, `aula`, `docentes`).
-  - Añadido `DIA_CHOICES` al modelo `TimeSlot` en `models.py`.
-- **Refactorización de Vista (`ComisionDetailView`):**
-  - Convertida `ComisionDetailView` (basada en clase) a `comision_detail` (basada en función) en `views.py`.
-  - Integrado el procesamiento de formularios (GET/POST) directamente en `comision_detail`.
-  - Actualizado `urls.py` para apuntar a la nueva vista basada en función.
-  - Eliminadas `HorarioCreateView` y `HorarioUpdateView` (y sus URLs asociadas).
+El sistema cuenta con una interfaz de usuario web (`templates`, `static`) y una estructura de vistas bien definida (`views.py`, `views_api.py`, `views_auth.py`, `views_panel.py`) que soporta tanto la interacción del usuario como posibles integraciones vía API.
 
-### 2. Control de Tope de Horas por Materia
-- Añadido campo `horas_catedra` a `MateriaEnPlan` en `models.py`.
-- Implementadas propiedades `horas_catedra_tope`, `horas_asignadas_en_periodo` y `horas_restantes_en_periodo` en el modelo `Comision` en `models.py`.
-- Actualizado método `HorarioClase.clean` en `models.py` para aplicar el límite de horas.
-- Actualizada vista `comision_detail` para pasar datos de tope de horas al template.
+---
 
-### 3. Validación de Conflicto de Docentes
-- Implementado método `clean` en `HorarioInlineForm` para prevenir conflictos de docentes (mismo bloque/período).
-- Añadido método `get_dia_semana_display` al modelo `TimeSlot` en `models.py`.
-- Implementado `m2m_changed` signal en `signals.py` para prevenir conflictos fuera del formulario.
-- Registradas señales en `apps.py` y `__init__.py`.
+## 2. Mejoras Recientes
 
-### 4. Mejoras de UX en Frontend
-- Añadido resumen de docentes seleccionados (chips y contador) en `comision_detail.html` y `panel.js`.
-- Añadido texto de ayuda para multiselección de docentes en `comision_detail.html`.
-- Eliminado campo "Observaciones" del formulario y template.
-- Actualizada visualización de errores del formulario en `comision_detail.html`.
-- Deshabilitado botón "Agregar" cuando se alcanza el límite de horas.
+Se han implementado y consolidado diversas funcionalidades y mejoras en el último período:
 
-### 5. Importación de Docentes
-- Corregidos múltiples errores de sintaxis y lógica en `scripts/import_docentes.py`.
-- Corregida ruta de archivo en `import_docentes.py`.
-- Añadido campo `dni` al modelo `Docente` en `models.py` y ejecutadas migraciones para soportar importación por DNI.
-- Importados exitosamente 184 docentes.
+*   **Gestión de Permisos y Roles**: Se ha trabajado en la definición y aplicación de permisos (`0005_coreperms.py`) para un control de acceso más granular dentro del sistema.
+*   **Requisitos de Ingreso**: Se ha añadido la funcionalidad para definir y gestionar requisitos de ingreso (`0006_requisitosingreso.py`), permitiendo una mejor administración de las condiciones de admisión.
+*   **Formularios Especializados**: Se han desarrollado y refinado formularios específicos para diversas operaciones (`forms_admin.py`, `forms_carga.py`, `forms_correlativas.py`, `forms_espacios.py`, `forms_student.py`), mejorando la experiencia de carga y administración de datos.
+*   **Lógica de Correlatividades y Elegibilidad**: Se ha avanzado significativamente en la implementación de la lógica de correlatividades (`correlativas.py`) y las reglas de elegibilidad (`eligibilidad.py`, `condiciones.py`) para la inscripción y avance académico de los estudiantes.
+*   **Gestión de Datos de Docentes**: Se han realizado trabajos relacionados con la gestión de datos de docentes, incluyendo posibles procesos de respaldo o migración (`backup_docentes_$(date)`, `backup_docentes.json`).
+*   **Herramientas de Importación/Exportación**: Se han desarrollado scripts para la generación de scripts de creación de espacios (`generate_espacios_creation_script.py`) y la carga/parseo de datos de correlatividades (`load_correlatividades_db.py`, `parse_correlatividades.py`, `parsed_correlatividades.json`), facilitando la inicialización y actualización de datos.
+*   **Módulos de Vistas**: Se ha consolidado la estructura de vistas, incluyendo vistas basadas en clases (CBV), vistas para paneles de usuario y vistas para API, lo que permite una mayor modularidad y escalabilidad.
 
-### 6. Corrección de Errores Críticos
-- Solucionado `SyntaxError` en `views.py` (`def_rango_por_turno`).
-- Solucionado `SyntaxError` en `forms.py` (f-string en `msgs.append`).
-- Solucionado `ImportError` para `hc_asignadas` y `hc_requeridas` reintroduciéndolas como funciones independientes en `models.py`.
-- Solucionado `NoReverseMatch` para `panel_horario_edit` eliminando el enlace.
-- Solucionado `TemplateSyntaxError` simplificando la visualización de errores en el template.
-- Solucionado `AttributeError` para `HorarioClase.Turno` y `HorarioClase.Dia` usando `Turno.choices` y `DIAS_CHOICES`.
+---
 
+## 3. Cambios Necesarios / Pendientes
 
-## Tareas abiertas
-- [ ] ...
+Para asegurar la calidad y el mantenimiento a largo plazo del sistema, se identifican los siguientes puntos que requieren atención:
 
+*   **Documentación Exhaustiva**: Es fundamental expandir y mantener actualizada la documentación técnica y de usuario, incluyendo diagramas de arquitectura, flujos de trabajo y manuales de uso.
+*   **Cobertura de Pruebas Unitarias e Integración**: Aunque existen pruebas (`tests.py`), es necesario ampliar la cobertura para garantizar la robustez de todas las funcionalidades críticas y prevenir regresiones.
+*   **Manejo de Errores y Logging**: Implementar un sistema de logging más detallado y un manejo de errores consistente en toda la aplicación para facilitar la depuración y el monitoreo.
+*   **Revisión de Seguridad**: Realizar una auditoría de seguridad exhaustiva para identificar y mitigar posibles vulnerabilidades, especialmente en la gestión de datos sensibles.
+*   **Refinamiento de la Interfaz de Usuario (UI/UX)**: Continuar mejorando la usabilidad y la estética de la interfaz, optimizando la experiencia del usuario en diferentes dispositivos y escenarios.
 
-## Bloqueos
-- [ ] ...
+---
 
+## 4. Futuras Mejoras / Roadmap
 
-## Problemas conocidos
-- [ ] ...
+Las siguientes funcionalidades y mejoras están consideradas para futuras iteraciones del proyecto:
+
+*   **Módulo de Reportes y Analíticas Avanzadas**: Desarrollar un módulo de reportes personalizables y dashboards con indicadores clave de rendimiento (KPIs) para la toma de decisiones.
+*   **Sistema de Notificaciones**: Implementar un sistema de notificaciones (email, SMS) para eventos importantes (ej. inscripciones, calificaciones, anuncios).
+*   **Integración con Sistemas Externos**: Explorar la integración con plataformas de pago, sistemas de gestión de aprendizaje (LMS) o herramientas de comunicación.
+*   **Optimización de Rendimiento y Escalabilidad**: Realizar optimizaciones a nivel de base de datos y código para asegurar un rendimiento óptimo a medida que la base de usuarios y el volumen de datos crecen.
+*   **Aplicación Móvil o Interfaz Responsiva Completa**: Desarrollar una aplicación móvil nativa o asegurar una experiencia completamente responsiva para el acceso desde dispositivos móviles.
+
+---
+
+## 5. Prioridades
+
+Las prioridades actuales para el desarrollo del proyecto son:
+
+1.  **Estabilidad y Corrección de Errores**: Asegurar que las funcionalidades existentes sean estables y corregir cualquier error crítico que afecte la operación del sistema.
+2.  **Seguridad de la Información**: Fortalecer las medidas de seguridad para proteger la integridad y confidencialidad de los datos académicos y personales.
+3.  **Completar Funcionalidades Core Pendientes**: Finalizar y pulir cualquier funcionalidad central que aún no esté completamente implementada o que requiera mejoras significativas.
+4.  **Integración de Feedback de Usuarios**: Recopilar y priorizar el feedback de los usuarios para realizar mejoras iterativas que impacten directamente en la usabilidad y eficiencia del sistema.
+5.  **Optimización de Procesos de Carga de Datos**: Mejorar y automatizar los procesos de importación y sincronización de datos para reducir la carga manual y los errores.
