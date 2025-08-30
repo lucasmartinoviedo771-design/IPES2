@@ -4,3 +4,4 @@ def test_django_settings(django_settings):
     # Comprobamos que apps propias estén instaladas
     assert "academia_horarios" in django_settings.INSTALLED_APPS
     assert "academia_core.apps.AcademiaCoreConfig" in django_settings.INSTALLED_APPS
+
