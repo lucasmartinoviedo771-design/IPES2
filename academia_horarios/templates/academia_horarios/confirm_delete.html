@@ -1,0 +1,9 @@
+{% extends 'academia_horarios/base_panel.html' %}
+{% block title %}Eliminar horario{% endblock %}
+{% block content %}
+<form method="post">{% csrf_token %}
+  <p>¿Eliminar {{ object }}?</p>
+  <button type="submit">Sí, borrar</button>
+  <a href="{% url 'panel_horario_list' %}" role="button" class="secondary">Cancelar</a>
+</form>
+{% endblock %}

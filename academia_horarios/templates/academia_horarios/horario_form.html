@@ -1,0 +1,18 @@
+{% extends 'academia_horarios/base_panel.html' %}
+{% load static %}
+{% block title %}{{ view.object|default:'Nuevo horario' }}{% endblock %}
+{% block content %}
+<form method="post">{% csrf_token %}
+  {{ form.non_field_errors }}
+  <label>Comisión {{ form.comision }}</label>
+  <div class="grid">
+    <label>Día {{ form.dia_semana }}</label>
+    <label>Inicio {{ form.inicio }}</label>
+    <label>Fin {{ form.fin }}</label>
+  </div>
+  <label>Aula {{ form.aula }}</label>
+  <label>Docentes {{ form.docentes }}</label>
+  <label>Observaciones {{ form.observaciones }}</label>
+  <button type="submit">Guardar</button>
+</form>
+{% endblock %}

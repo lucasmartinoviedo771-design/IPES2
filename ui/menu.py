@@ -26,7 +26,7 @@ BEDEL_MENU = [
     {
         "title": "PLANIFICACIÓN",
         "items": [
-            {"label": "Horarios",             "path": "/horarios", "icon": "clock"},
+            {"label": "Oferta y Horarios",    "path": "/panel/oferta/", "icon": "calendar"},
             {"label": "Espacios Curriculares","path": "/espacios", "icon": "layers"},
             {"label": "Planes de Estudio",    "path": "/planes",   "icon": "map"},
         ],

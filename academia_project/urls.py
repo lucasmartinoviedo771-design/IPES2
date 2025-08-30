@@ -9,6 +9,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/login/", RoleAwareLoginView.as_view(), name="login"),  # 👈
     path("accounts/logout/", __import__("django.contrib.auth.views", fromlist=["LogoutView"]).LogoutView.as_view(), name="logout"),
+    path("panel/", include("academia_horarios.urls")),
     path("", include("ui.urls")),
 ]
 

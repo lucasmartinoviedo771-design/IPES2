@@ -89,6 +89,7 @@ INSTALLED_APPS = [
     # Apps propias
     "academia_core.apps.AcademiaCoreConfig",
     "ui",
+    "academia_horarios",
 ]
 
 # -----------------------------
@@ -218,4 +219,4 @@ REST_FRAMEWORK = {
 # -----------------------------
 # Varios
 # -----------------------------
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"

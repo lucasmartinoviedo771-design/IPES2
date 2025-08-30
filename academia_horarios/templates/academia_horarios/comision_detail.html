@@ -1,0 +1,111 @@
+{% extends 'academia_horarios/base_panel.html' %}
+{% load static %}
+{% block title %}{{ object }}{% endblock %}
+{% block content %}
+{% if horas_tope is not None %}
+  <p><strong>Carga semanal:</strong> {{ horas_asignadas }}/{{ horas_tope }}
+    {% if bloqueado_por_tope %}
+      <span style="background-color: var(--pico-amber-200);">Tope alcanzado</span>
+    {% endif %}
+  </p>
+{% else %}
+  <p><em>Sin tope configurado para esta materia.</em></p>
+{% endif %}
+
+<h3>Horarios</h3>
+<table>
+  <thead><tr><th>Día</th><th>Inicio</th><th>Fin</th><th>Docentes</th><th>Aula</th><th></th></tr></thead>
+  <tbody>
+  {% for h in horarios %}
+    <tr>
+      <td>{{ h.timeslot.dia_semana }}</td>
+      <td>{{ h.timeslot.inicio }}</td>
+      <td>{{ h.timeslot.fin }}</td>
+      <td>{% for d in h.docentes.all %}{{ d }}{% if not forloop.last %}, {% endif %}{% empty %}<em>Sin docente</em>{% endfor %}</td>
+      <td>{{ h.aula }}</td>
+      <td>
+        <a href="{% url 'panel_horario_edit' h.id %}">Editar</a>
+        <a href="{% url 'panel_horario_del' h.id %}">Borrar</a>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6">No hay horarios.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Agregar horario</h3>
+<form method="post" action="{% url 'panel_horario_new' %}">{% csrf_token %}
+  <input type="hidden" name="comision" value="{{ object.id }}"/>
+
+  <div class="grid">
+    <div>
+      <label for="id_turno">Turno</label>
+      <select id="id_turno" name="turno">
+        <option value="">— (todos) —</option>
+        <option value="M">Mañana</option>
+        <option value="T">Tarde</option>
+        <option value="V">Vespertino</option>
+        <option value="S">Sábado</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="id_dia">Día</label>
+      <select id="id_dia" name="dia">
+        <option value="">— (todos) —</option>
+        <option value="1">Lunes</option>
+        <option value="2">Martes</option>
+        <option value="3">Miércoles</option>
+        <option value="4">Jueves</option>
+        <option value="5">Viernes</option>
+        <option value="6">Sábado</option>
+      </select>
+    </div>
+  </div>
+
+  <div>
+    <label for="id_bloque">Bloque (día / inicio–fin)</label>
+    <select id="id_bloque" name="bloque" required>
+      <option value="">— seleccioná turno/día —</option>
+    </select>
+  </div>
+
+  <label>Aula {{ form.aula }}</label>
+  <label>Docentes (opcional) {{ form.docentes }}</label>
+  <label>Observaciones {{ form.observaciones }}</label>
+  <button {% if bloqueado_por_tope %}disabled title="Tope de horas alcanzado"{% endif %}>Agregar</button>
+</form>
+
+<script>
+async function cargarBloques() {
+  const turno = document.getElementById("id_turno").value;
+  const dia   = document.getElementById("id_dia").value;
+  const params = new URLSearchParams();
+  if (turno) params.append("turno", turno);
+  if (dia)   params.append("dia", dia);
+
+  const resp = await fetch(`/panel/horarios/api/timeslots/?${params.toString()}`);
+  const data = await resp.json();
+
+  const sel = document.getElementById("id_bloque");
+  sel.innerHTML = "";
+  if (!data.results.length) {
+    sel.innerHTML = `<option value=""> (no hay bloques con ese filtro)</option>`;
+    return;
+  }
+  for (const x of data.results) {
+    const opt = document.createElement("option");
+    opt.value = x.id;
+    opt.textContent = x.label;
+    sel.appendChild(opt);
+  }
+}
+
+document.getElementById("id_turno").addEventListener("change", cargarBloques);
+document.getElementById("id_dia").addEventListener("change", cargarBloques);
+
+// carga inicial (por si querés que arranque con todos)
+cargarBloques();
+</script>
+{% endblock %}
