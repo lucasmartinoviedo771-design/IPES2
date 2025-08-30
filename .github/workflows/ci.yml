@@ -18,8 +18,8 @@ jobs:
           python -m pip install -U pip
           pip install ruff pytest
 
-      - name: Lint (ruff) — no bloquea por ahora
-        run: ruff check . || true
+      - name: Lint (ruff) — ahora ESTRICTO
+        run: ruff check .
 
       - name: Tests (pytest - smoke)
         run: pytest -q tests/test_ci_smoke.py
