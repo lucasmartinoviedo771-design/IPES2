@@ -24,7 +24,6 @@
       <td>{% for d in h.docentes.all %}{{ d }}{% if not forloop.last %}, {% endif %}{% empty %}<em>Sin docente</em>{% endfor %}</td>
       <td>{{ h.aula }}</td>
       <td>
-        <a href="{% url 'panel_horario_edit' h.id %}">Editar</a>
         <a href="{% url 'panel_horario_del' h.id %}">Borrar</a>
       </td>
     </tr>
@@ -35,8 +34,19 @@
 </table>
 
 <h3>Agregar horario</h3>
-<form method="post" action="{% url 'panel_horario_new' %}">{% csrf_token %}
-  <input type="hidden" name="comision" value="{{ object.id }}"/>
+<form method="post">{% csrf_token %}
+
+  {% if messages %}
+    {% for m in messages %}
+      <div class="alert {{ m.tags }}">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% if form.errors %}
+    <div class="alert error">
+      <p>Form errors: {{ form.errors }}</p>
+    </div>
+  {% endif %}
 
   <div class="grid">
     <div>
@@ -69,11 +79,26 @@
     <select id="id_bloque" name="bloque" required>
       <option value="">— seleccioná turno/día —</option>
     </select>
+    {% if form.bloque.errors %}
+      <div class="error">{{ form.bloque.errors|join:", " }}</div>
+    {% endif %}
   </div>
 
   <label>Aula {{ form.aula }}</label>
-  <label>Docentes (opcional) {{ form.docentes }}</label>
-  <label>Observaciones {{ form.observaciones }}</label>
+  <label for="id_docentes">
+  Docentes (opcional) <small id="docCount" class="contrast"></small>
+</label>
+
+{{ form.docentes }}
+
+<small id="docHelp" class="muted">
+  Consejo: para seleccionar más de un docente mantené presionada
+  <kbd>Ctrl</kbd> (Windows/Linux) o <kbd>⌘ Cmd</kbd> (Mac) mientras hacés clic.
+</small>
+
+<!-- Resumen vivo -->
+<div id="docentesSummary" class="summary-chips" aria-live="polite"></div>
+
   <button {% if bloqueado_por_tope %}disabled title="Tope de horas alcanzado"{% endif %}>Agregar</button>
 </form>
 
@@ -108,4 +133,26 @@ document.getElementById("id_dia").addEventListener("change", cargarBloques);
 // carga inicial (por si querés que arranque con todos)
 cargarBloques();
 </script>
+
+<style>
+.summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin-top: .35rem;
+}
+.summary-chips .chip {
+  padding: .2rem .5rem;
+  border-radius: 999px;
+  border: 1px solid var(--muted-border-color, #334155);
+  background: var(--muted-bg, #1f2937);
+  font-size: .85rem;
+}
+.muted { opacity: .8; }
+kbd {
+  background: #111827; border: 1px solid #374151; border-radius: .25rem;
+  padding: .1rem .35rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .85em;
+}
+</style>
 {% endblock %}

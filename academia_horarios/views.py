@@ -1,10 +1,10 @@
-from django.views.generic import TemplateView, DetailView, CreateView, UpdateView, DeleteView, ListView
-from django.shortcuts import redirect
+from django.views.generic import TemplateView, DeleteView, ListView
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.db.models import Sum
 from django.contrib import messages
 from .models import Plan, MateriaEnPlan, Comision, Periodo, HorarioClase, hc_asignadas, hc_requeridas, TimeSlot
-from .forms import HorarioClaseForm
+from .forms import HorarioInlineForm
 from datetime import time
 from django.http import JsonResponse
 
@@ -61,58 +61,58 @@ class OfertaView(TemplateView):
             messages.success(request, f"Comisiones '{nombre}' creadas: {created}")
         return redirect(f"{reverse('panel_oferta')}?plan={request.POST.get('plan')}&anio={request.POST.get('anio')}&periodo={request.POST.get('periodo')}")
 
-class ComisionDetailView(DetailView):
-    template_name = "academia_horarios/comision_detail.html"
-    model = Comision
+def comision_detail(request, pk):
+    comision = get_object_or_404(Comision, pk=pk)
+    horarios = (
+        HorarioClase.objects
+        .filter(comision=comision)
+        .select_related("timeslot")
+        .prefetch_related("docentes")
+    )
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        comi: Comision = self.object
-        mep = comi.materia_en_plan
-        # req = hc_requeridas(mep, comi.periodo) # Lógica anterior, la reemplazamos
-        # asign = hc_asignadas(comi) # Lógica anterior
+    if request.method == "POST":
+        form = HorarioInlineForm(request.POST)
+        if form.is_valid():
+            try:
+                form.save(comision)
+                messages.success(request, "Horario agregado.")
+                return redirect(request.path)  # PRG: evita reenvíos y reseteos
+            except Exception as e:
+                form.add_error(None, str(e))
+        messages.error(request, "Revisá los datos del formulario.")
+    else:
+        form = HorarioInlineForm(initial={"comision": comision.id})
 
-        # Nueva lógica de topes
-        horas_tope = comi.horas_catedra_tope
-        horas_asignadas = comi.horas_asignadas_en_periodo()
-        horas_restantes = comi.horas_restantes_en_periodo()
-        bloqueado_por_tope = (horas_tope is not None and horas_restantes == 0)
+    # Nueva lógica de topes (adaptada para función-based view)
+    horas_tope = comision.horas_catedra_tope
+    horas_asignadas = comision.horas_asignadas_en_periodo()
+    horas_restantes = comision.horas_restantes_en_periodo()
+    bloqueado_por_tope = (horas_tope is not None and horas_restantes == 0)
 
-        ctx.update({
-            "horarios": comi.horarios.select_related("timeslot").prefetch_related("docentes"),
-            "form": HorarioClaseForm(initial={"comision": comi.id}),
+    return render(
+        request,
+        "academia_horarios/comision_detail.html",
+        {
+            "object": comision, # Para compatibilidad con el template que usa {{ object }}
+            "comision": comision,
+            "horarios": horarios,
+            "form": form,
             "horas_tope": horas_tope,
             "horas_asignadas": horas_asignadas,
             "horas_restantes": horas_restantes,
             "bloqueado_por_tope": bloqueado_por_tope,
-        })
-        return ctx
-
-class HorarioCreateView(CreateView):
-    template_name = "academia_horarios/horario_form.html"
-    form_class = HorarioClaseForm
-
-    def get_initial(self):
-        ini = super().get_initial()
-        if "comision_id" in self.request.GET:
-            ini["comision"] = self.request.GET.get("comision_id")
-        return ini
-
-    def get_success_url(self):
-        comision_id = self.object.comision_id
-        return reverse("panel_comision", args=[comision_id])
-
-class HorarioUpdateView(UpdateView):
-    template_name = "academia_horarios/horario_form.html"
-    form_class = HorarioClaseForm
-    model = HorarioClase
-    def get_success_url(self):
-        return reverse("panel_comision", args=[self.object.comision_id])
+        }
+    )
 
 class HorarioDeleteView(DeleteView):
     template_name = "academia_horarios/confirm_delete.html"
     model = HorarioClase
     def get_success_url(self):
+        # 1) si viene "next" del form, usamos eso
+        nxt = self.request.POST.get("next") or self.request.GET.get("next")
+        if nxt:
+            return nxt
+        # 2) sino, volvemos al detalle de la comisión
         return reverse("panel_comision", args=[self.object.comision_id])
 
 

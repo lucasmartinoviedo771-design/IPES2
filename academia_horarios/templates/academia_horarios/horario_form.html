@@ -2,17 +2,27 @@
 {% load static %}
 {% block title %}{{ view.object|default:'Nuevo horario' }}{% endblock %}
 {% block content %}
-<form method="post">{% csrf_token %}
-  {{ form.non_field_errors }}
-  <label>Comisión {{ form.comision }}</label>
-  <div class="grid">
-    <label>Día {{ form.dia_semana }}</label>
-    <label>Inicio {{ form.inicio }}</label>
-    <label>Fin {{ form.fin }}</label>
-  </div>
-  <label>Aula {{ form.aula }}</label>
-  <label>Docentes {{ form.docentes }}</label>
-  <label>Observaciones {{ form.observaciones }}</label>
+<form method="post" novalidate>{% csrf_token %}
+  <input type="hidden" name="next"
+         value="{{ request.GET.next|default:request.META.HTTP_REFERER }}">
+
+  {% if form.non_field_errors %}
+    <div class="error">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  {% for field in form %}
+    {% if field.name == "comision" %}
+      {{ field.as_hidden }}
+    {% else %}
+      <div class="field">
+        {{ field.label_tag }} {{ field }}
+        {% if field.errors %}
+          <div class="error">{{ field.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endfor %}
+
   <button type="submit">Guardar</button>
 </form>
 {% endblock %}

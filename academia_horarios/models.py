@@ -114,8 +114,18 @@ class TimeSlot(models.Model):
     inicio = models.TimeField()
     fin = models.TimeField()
 
+    DIA_CHOICES = [
+        (1, "Lunes"),
+        (2, "Martes"),
+        (3, "Miércoles"),
+        (4, "Jueves"),
+        (5, "Viernes"),
+        (6, "Sábado"),
+        (7, "Domingo"),
+    ]
+
     def get_dia_semana_display(self):
-        dias = {1:"Lunes",2:"Martes",3:"Miércoles",4:"Jueves",5:"Viernes",6:"Sábado",7:"Domingo"}
+        dias = {i: lbl for i, lbl in self.DIA_CHOICES}
         return dias.get(self.dia_semana, f"Día {self.dia_semana}")
 
     def __str__(self): return f"{self.get_dia_semana_display()} {self.inicio}-{self.fin}"

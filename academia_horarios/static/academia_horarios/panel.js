@@ -50,3 +50,33 @@ document.addEventListener("DOMContentLoaded", () => {
   // No hacemos precarga para no traer todos los bloques de una vez.
   // El usuario debe elegir un filtro primero.
 });
+
+function updateDocentesSummary() {
+  const sel = document.getElementById("id_docentes");
+  const summary = document.getElementById("docentesSummary");
+  const countEl = document.getElementById("docCount");
+  if (!sel || !summary) return;
+
+  const selected = Array.from(sel.selectedOptions).map(o => o.text.trim());
+
+  // contador en el label
+  if (countEl) countEl.textContent = selected.length ? `(${selected.length})` : "";
+
+  // chips/resumen
+  if (!selected.length) {
+    summary.innerHTML = '<em>No hay docentes seleccionados</em>';
+    return;
+  }
+  summary.innerHTML = selected
+    .map(n => `<span class="chip">${n}</span>`)
+    .join(" ");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const sel = document.getElementById("id_docentes");
+  if (sel) {
+    sel.addEventListener("change", updateDocentesSummary);
+    sel.addEventListener("keyup", updateDocentesSummary); // soporta teclado
+    updateDocentesSummary(); // inicial
+  }
+});
