@@ -16,7 +16,7 @@ jobs:
       - name: Instalar dependencias
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmysqlclient-dev  # necesario si tu requirements incluye mysqlclient
+          sudo apt-get install -y libmysqlclient-dev || true
           python -m pip install -U pip
           pip install -r requirements.txt
           pip install pytest pytest-django ruff
@@ -24,9 +24,42 @@ jobs:
       - name: Lint (ruff) — informativo
         run: ruff check . || true
 
+      # 🔎 Auto-detectar dónde está manage.py
+      - name: Detectar manage.py
+        id: where
+        run: |
+          set -e
+          if [ -f manage.py ]; then
+            echo "manage=manage.py" >> $GITHUB_OUTPUT
+          elif [ -f academia_project/manage.py ]; then
+            echo "manage=academia_project/manage.py" >> $GITHUB_OUTPUT
+          else
+            echo "No se encontró manage.py en el repo"; ls -la; echo "---"; ls -la academia_project || true
+            exit 1
+          fi
+
+      - name: Django check (config básica)
+        env:
+          DJANGO_SETTINGS_MODULE: academia_project.settings
+          USE_SQLITE_FOR_TESTS: "1"
+          DJANGO_DEBUG: "1"
+        run: |
+          python "${{ steps.where.outputs.manage }}" check
+
+      # ⚠️ De momento NO bloquea: si hay warnings de deploy, que siga el build
+      - name: Django check --deploy (simular prod, no bloqueante)
+        env:
+          DJANGO_SETTINGS_MODULE: academia_project.settings
+          USE_SQLITE_FOR_TESTS: "1"
+          DJANGO_DEBUG: "0"
+          DJANGO_SECRET_KEY: "dummy-key-for-ci"
+          DJANGO_ALLOWED_HOSTS: "example.com"
+          DJANGO_CSRF_TRUSTED_ORIGINS: "https://example.com"
+        run: |
+          python "${{ steps.where.outputs.manage }}" check --deploy --fail-level WARNING || true
+
       - name: Tests (pytest)
         env:
           DJANGO_SETTINGS_MODULE: academia_project.settings
           USE_SQLITE_FOR_TESTS: "1"
         run: pytest -q
-        
