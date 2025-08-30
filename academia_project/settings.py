@@ -223,7 +223,6 @@ REST_FRAMEWORK = {
 # =========== Varios ===========
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField" 
 
-
 # --- Solo para CI/local si queremos evitar MySQL en tests ---
 # Si USE_SQLITE_FOR_TESTS=1, usamos SQLite (en vez de MySQL) para pytest
 if os.getenv("USE_SQLITE_FOR_TESTS") == "1":
