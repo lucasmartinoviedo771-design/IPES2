@@ -1,67 +1,212 @@
-# Seguimiento del Proyecto - Sistema de Gestión Académica
+# SEGUIMIENTO DEL PROYECTO — IPES2 (Sistema de Gestión Académica)
 
-## Fecha de Actualización: 30 de agosto de 2025
-
-Este documento proporciona una visión general del estado actual del proyecto del Sistema de Gestión Académica, destacando las mejoras recientes, los cambios necesarios, las futuras mejoras planificadas y las prioridades.
-
----
-
-## 1. Estado Actual del Proyecto
-
-El proyecto es un sistema de gestión académica robusto, desarrollado sobre el framework Django, diseñado para administrar los procesos educativos de una institución. Se estructura en módulos principales:
-
-*   **`academia_core`**: Módulo central que maneja las funcionalidades académicas fundamentales, incluyendo la gestión de estudiantes, cursos, inscripciones, calificaciones, planes de estudio y correlatividades.
-*   **`academia_horarios`**: Módulo dedicado a la gestión de horarios, comisiones, docentes y asignación de espacios.
-*   **Infraestructura**: Utiliza un entorno virtual (`.venv`) para la gestión de dependencias (`requirements.txt`) y `manage.py` como punto de entrada para las operaciones de Django. La evolución del esquema de la base de datos se gestiona a través de migraciones (`migrations`).
-
-El sistema cuenta con una interfaz de usuario web (`templates`, `static`) y una estructura de vistas bien definida (`views.py`, `views_api.py`, `views_auth.py`, `views_panel.py`) que soporta tanto la interacción del usuario como posibles integraciones vía API.
+**Fecha de actualización:** 30/08/2025
+**Repositorio:** `lucasmartinoviedo771-design/IPES2`
+**Alcance:** Auditoría funcional/técnica del estado actual, correcciones, backlog priorizado, riesgos y plan de siguiente(s) iteración(es).
 
 ---
 
-## 2. Mejoras Recientes
+## 1) Resumen ejecutivo
 
-Se han implementado y consolidado diversas funcionalidades y mejoras en el último período:
+El sistema IPES2 es una plataforma web basada en Django orientada a la gestión académica (estudiantes, inscripciones, planes, correlatividades, horarios, comisiones y docentes). En los últimos commits se evidencian avances significativos en **gestión de horarios**, validaciones de **topes de horas por materia**, **conflictos de docentes** y mejoras de **UX** en el panel de comisiones. También se corrigieron errores críticos (routing, importaciones y templates).
 
-*   **Gestión de Permisos y Roles**: Se ha trabajado en la definición y aplicación de permisos (`0005_coreperms.py`) para un control de acceso más granular dentro del sistema.
-*   **Requisitos de Ingreso**: Se ha añadido la funcionalidad para definir y gestionar requisitos de ingreso (`0006_requisitosingreso.py`), permitiendo una mejor administración de las condiciones de admisión.
-*   **Formularios Especializados**: Se han desarrollado y refinado formularios específicos para diversas operaciones (`forms_admin.py`, `forms_carga.py`, `forms_correlativas.py`, `forms_espacios.py`, `forms_student.py`), mejorando la experiencia de carga y administración de datos.
-*   **Lógica de Correlatividades y Elegibilidad**: Se ha avanzado significativamente en la implementación de la lógica de correlatividades (`correlativas.py`) y las reglas de elegibilidad (`eligibilidad.py`, `condiciones.py`) para la inscripción y avance académico de los estudiantes.
-*   **Gestión de Datos de Docentes**: Se han realizado trabajos relacionados con la gestión de datos de docentes, incluyendo posibles procesos de respaldo o migración (`backup_docentes_$(date)`, `backup_docentes.json`).
-*   **Herramientas de Importación/Exportación**: Se han desarrollado scripts para la generación de scripts de creación de espacios (`generate_espacios_creation_script.py`) y la carga/parseo de datos de correlatividades (`load_correlatividades_db.py`, `parse_correlatividades.py`, `parsed_correlatividades.json`), facilitando la inicialización y actualización de datos.
-*   **Módulos de Vistas**: Se ha consolidado la estructura de vistas, incluyendo vistas basadas en clases (CBV), vistas para paneles de usuario y vistas para API, lo que permite una mayor modularidad y escalabilidad.
+**Diagnóstico general:**
 
----
+* **Funcionalidad core**: en buen estado y en consolidación.
+* **Arquitectura y módulos**: correcta separación por apps, con oportunidades de estandarización.
+* **Calidad**: faltan pruebas automatizadas amplias, linters/typing y pipeline CI/CD.
+* **Seguridad/Operación**: reforzar gestión de `settings`, logging, manejo de secretos y endurecimiento de despliegue.
 
-## 3. Cambios Necesarios / Pendientes
-
-Para asegurar la calidad y el mantenimiento a largo plazo del sistema, se identifican los siguientes puntos que requieren atención:
-
-*   **Documentación Exhaustiva**: Es fundamental expandir y mantener actualizada la documentación técnica y de usuario, incluyendo diagramas de arquitectura, flujos de trabajo y manuales de uso.
-*   **Cobertura de Pruebas Unitarias e Integración**: Aunque existen pruebas (`tests.py`), es necesario ampliar la cobertura para garantizar la robustez de todas las funcionalidades críticas y prevenir regresiones.
-*   **Manejo de Errores y Logging**: Implementar un sistema de logging más detallado y un manejo de errores consistente en toda la aplicación para facilitar la depuración y el monitoreo.
-*   **Revisión de Seguridad**: Realizar una auditoría de seguridad exhaustiva para identificar y mitigar posibles vulnerabilidades, especialmente en la gestión de datos sensibles.
-*   **Refinamiento de la Interfaz de Usuario (UI/UX)**: Continuar mejorando la usabilidad y la estética de la interfaz, optimizando la experiencia del usuario en diferentes dispositivos y escenarios.
+**Prioridad inmediata (P0):** hardening de `settings`, completar validaciones/errores en horarios, cobertura de pruebas de regresión, pipeline CI, checklist de release.
 
 ---
 
-## 4. Futuras Mejoras / Roadmap
+## 2) Mapa del sistema (alto nivel)
 
-Las siguientes funcionalidades y mejoras están consideradas para futuras iteraciones del proyecto:
+* **`academia_core`**: núcleo académico (estudiantes, cursos, inscripciones, calificaciones, planes, correlatividades).
+* **`academia_horarios`**: horarios, comisiones, docentes, espacios.
+* **Infraestructura/complementos**: `scripts/` de importación/exportación, `templates/`, `static/`, `ui/`, `requirements.txt`, `schema_erd.mmd` y `schema_models.md`.
 
-*   **Módulo de Reportes y Analíticas Avanzadas**: Desarrollar un módulo de reportes personalizables y dashboards con indicadores clave de rendimiento (KPIs) para la toma de decisiones.
-*   **Sistema de Notificaciones**: Implementar un sistema de notificaciones (email, SMS) para eventos importantes (ej. inscripciones, calificaciones, anuncios).
-*   **Integración con Sistemas Externos**: Explorar la integración con plataformas de pago, sistemas de gestión de aprendizaje (LMS) o herramientas de comunicación.
-*   **Optimización de Rendimiento y Escalabilidad**: Realizar optimizaciones a nivel de base de datos y código para asegurar un rendimiento óptimo a medida que la base de usuarios y el volumen de datos crecen.
-*   **Aplicación Móvil o Interfaz Responsiva Completa**: Desarrollar una aplicación móvil nativa o asegurar una experiencia completamente responsiva para el acceso desde dispositivos móviles.
+> Recomendación: documentar un diagrama simple de arquitectura (cliente → vistas/panel → servicios/API → modelo/DB), y un **data dictionary** para las tablas principales.
 
 ---
 
-## 5. Prioridades
+## 3) Estado por fase (F0–F8)
 
-Las prioridades actuales para el desarrollo del proyecto son:
+> Semáforo: ✅ Completado · 🟡 En curso · 🔴 Pendiente
 
-1.  **Estabilidad y Corrección de Errores**: Asegurar que las funcionalidades existentes sean estables y corregir cualquier error crítico que afecte la operación del sistema.
-2.  **Seguridad de la Información**: Fortalecer las medidas de seguridad para proteger la integridad y confidencialidad de los datos académicos y personales.
-3.  **Completar Funcionalidades Core Pendientes**: Finalizar y pulir cualquier funcionalidad central que aún no esté completamente implementada o que requiera mejoras significativas.
-4.  **Integración de Feedback de Usuarios**: Recopilar y priorizar el feedback de los usuarios para realizar mejoras iterativas que impacten directamente en la usabilidad y eficiencia del sistema.
-5.  **Optimización de Procesos de Carga de Datos**: Mejorar y automatizar los procesos de importación y sincronización de datos para reducir la carga manual y los errores.
+* **F0 Fundaciones** — 🟡
+  **Evidencia**: estructura por apps, scripts de datos, esquemas.
+  **Próx. pasos**: estandarizar `settings` por entorno; activar linters/typing; añadir CI.
+
+* **F1 Horarios** — 🟡  (avance alto)
+  **Evidencia**: `timeslots_api`, normalización día/turno, `ComisionDetailView → function view`, `HorarioInlineForm` con `clean/save`, validación de tope de horas y conflictos docentes, mejoras UX (chips, contador, botón deshabilitado).
+  **Próx. pasos**: tests de regresión (form/validaciones/API); paginación y mensajes de error consistentes.
+
+* **F2 Inscripción** — 🔴
+  **Evidencia**: reglas de elegibilidad y correlatividades progresando; falta circuito E2E de inscripción (flujo completo con UI).
+  **Próx. pasos**: endpoint(s)/vistas E2E; validaciones; pruebas de carga de datos.
+
+* **F3 Comisiones** — 🟡
+  **Evidencia**: detalle de comisión con formulario integrado; topes de horas.
+  **Próx. pasos**: filtros/búsquedas; exportables; auditoría de integridad de datos.
+
+* **F4 Docentes** — 🟡
+  **Evidencia**: importación por DNI (184 registros), mejoras en modelo `Docente`.
+  **Próx. pasos**: validaciones de duplicados/conflictos; edición masiva segura; permisos por rol.
+
+* **F5 Notas** — 🔴
+  **Evidencia**: no hay trazas del circuito de carga/consulta de notas.
+  **Próx. pasos**: diseño de flujos y modelos; auditoría; UI básica + exportación.
+
+* **F6 Paneles** — 🟡
+  **Evidencia**: panel de comisiones en evolución.
+  **Próx. pasos**: unificar estilo, manejo de estados vacíos/errores, accesibilidad (a11y).
+
+* **F7 KPIs** — 🔴
+  **Próx. pasos**: definir indicadores (inscripciones activas, ocupación de espacios, avance de plan, retención) y un panel mínimo (tabla/gráfico).
+
+* **F8 Endurecimiento** — 🔴
+  **Próx. pasos**: seguridad/ops (ver §6), performance (índices), backup/restore y checklist de release.
+
+---
+
+## 4) Cambios recientes clave (curado)
+
+1. **Gestión de horarios**: `timeslots_api`, normalización de entradas, nuevo `HorarioInlineForm`, refactor de vista a función, URLs actualizadas.
+2. **Tope de horas por materia**: campo `horas_catedra` y propiedades de cálculo en modelos; validación en `clean`.
+3. **Conflictos de docentes**: validaciones en form + `m2m_changed` y `apps/__init__` para registrar señales.
+4. **UX**: chips/contador de docentes seleccionados, ayuda de multiselección, deshabilitar “Agregar” al alcanzar tope, simplificación de errores en template.
+5. **Importación de docentes**: script corregido y carga exitosa (184).
+6. **Errores críticos resueltos**: rutas duplicadas, `SyntaxError`, `ImportError`, `NoReverseMatch`, `TemplateSyntaxError`, `AttributeError`.
+
+> Sugerencia: mantener un **CHANGELOG.md** con formato semántico por versión (feat/fix/refactor/docs/chore) y enlaces a commits.
+
+---
+
+## 5) Errores/alertas detectados y propuestas de corrección
+
+### 5.1 Diseño/Dominio
+
+* **Enum/choices**: centralizar día/turno/bloques como `TextChoices`/`IntegerChoices` y mapear en base de datos; evita desalineaciones UI/BE.
+* **Reglas de negocio en el modelo**: mantener `clean()` y `save()` con validaciones críticas (tope de horas, conflictos), y reforzar con **constraints** (UNIQUE/Check) a nivel DB.
+
+### 5.2 Formularios y vistas
+
+* **Form vs ModelForm**: si se mantiene `forms.Form`, asegurar persistencia atómica en `save()` y manejo de M2M; alternativamente, evaluar `ModelForm` + `inline formsets` para coherencia con Django Admin.
+* **Mensajería de errores**: estandarizar formato (barra de alertas + inline), i18n y códigos de error reutilizables.
+
+### 5.3 API/Integración
+
+* Normalizar **nombres de rutas** y usar `reverse()` / `path()` con `name=`; evitar strings hardcodeados.
+* Definir **contratos** de `timeslots_api` (entrada/salida JSON) y documentar con OpenAPI/`drf-spectacular` si se adopta DRF.
+
+### 5.4 Datos
+
+* **Importación Docentes**: validar encabezados/encoding; detectar duplicados por DNI + nombre; registrar bitácora (CSV de errores).
+* **Correlatividades**: tests de consistencia (ciclos, prerequisitos imposibles) y utilitarios de reporte.
+
+### 5.5 Seguridad/Operación
+
+* Parametrizar **SECRET\_KEY/DB/ALLOWED\_HOSTS/DEBUG** vía entorno (`django-environ`).
+* Activar **CSRF**, seguridad de cookies (`Secure`, `HttpOnly`, `SameSite`), `SECURE_*` en producción y redirección HTTPS.
+* **Logging** estructurado a archivo/STDOUT con rotación y niveles por módulo; alertas de error (Sentry).
+* Revisar exposición de **datos personales** (DNI, etc.) y **permisos** por rol (admin/docente/estudiante).
+* Tareas de **backup/restore** + prueba de recuperación.
+
+### 5.6 Calidad/DevEx
+
+* Adoptar **pytest + pytest-django**, **factory\_boy/faker** y **coverage** (objetivo ≥70% en 2 iteraciones).
+* Linters: **ruff** (PEP8/imports), **mypy** (typing gradual).
+* Formato: **black** o ruff formatter.
+* Pre-commit hooks.
+
+---
+
+## 6) Backlog priorizado (P0–P2)
+
+**P0 (Crítico / próxima iteración)**
+
+1. Hardening de `settings`: variables de entorno, `DEBUG=False`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `SECURE_*`.
+2. Pruebas de regresión sobre horarios: `clean()`/`save()`, conflictos M2M, tope de horas, `timeslots_api`.
+3. Pipeline **CI (GitHub Actions)**: instalar deps, ejecutar linters/typing/tests, publicar cobertura.
+4. Bitácora de importación de docentes + validaciones (duplicados, formatos).
+5. Checklist de release + documentación de despliegue (collectstatic, migraciones, superusuario, backup, rollback).
+
+**P1 (Alto)**
+6\. Flujo E2E de **inscripción** con UI, validaciones y pruebas.
+7\. Paneles/KPIs mínimos: conteos de inscripciones, ocupación de aulas, horas asignadas vs tope.
+8\. Indexación en DB (consultas por comisión, docente, día/turno, aula).
+9\. Normalización de enums/choices y constraints en DB.
+10\. Mejoras UX accesibilidad (a11y): foco, roles ARIA, contrastes, estados vacíos.
+
+**P2 (Medio)**
+11\. DRF + OpenAPI si se prevé consumo externo.
+12\. Exportaciones (CSV/XLSX) de comisiones/horarios/notas.
+13\. Internationalización (i18n) básico.
+14\. Observabilidad (Sentry/Prometheus) y métricas técnicas (tiempo respuesta, errores 5xx).
+
+---
+
+## 7) Riesgos y mitigaciones
+
+* **Regresiones en horarios**: elevar cobertura de tests, feature flags para cambios grandes.
+* **Calidad de datos en importaciones**: validaciones estrictas y previsualización antes de aplicar.
+* **Seguridad de datos personales**: revisión de permisos y enmascaramiento en logs; acuerdos legales según normativa local.
+* **Despliegue manual**: CI/CD y checklist para evitar saltos de pasos.
+
+---
+
+## 8) Plan de pruebas (matriz resumida)
+
+| Área            | Caso                 | Entrada                      | Resultado esperado                       |
+| --------------- | -------------------- | ---------------------------- | ---------------------------------------- |
+| Horarios        | Crear horario válido | Docente libre, bloque libre  | Alta exitosa                             |
+| Horarios        | Tope de horas        | Supera tope en período       | Rechazo con mensaje específico           |
+| Horarios        | Conflicto docente    | Mismo docente/bloque/período | Rechazo + hint de conflicto              |
+| API Timeslots   | Filtrado             | día=Lu, turno=Mañana         | Lista consistente con enum/choices       |
+| Import docentes | Duplicados           | DNI repetido                 | Se omite/agrupa y se reporta en bitácora |
+| Permisos        | Acceso restringido   | Usuario sin rol              | 403/redirect                             |
+
+> KPI de QA: tasa de éxito ≥95% en smoke suite; tiempo medio de corrección de bug P0 < 24h.
+
+---
+
+## 9) KPIs operativos (versión inicial)
+
+* **Inscripciones activas** (por período).
+* **Ocupación de aulas** (% por bloque/turno).
+* **Horas cátedra asignadas vs tope** (por materia/comisión).
+* **Tiempo de carga de docente/comisión**.
+* **Errores 4xx/5xx** por día.
+
+---
+
+## 10) Checklist de release (prod)
+
+1. `pytest` verde + cobertura publicada.
+2. `ruff`/`mypy` sin errores.
+3. Migraciones aplicadas y verificación de datos.
+4. `collectstatic` OK; compresión/minificación.
+5. `DEBUG=False`, `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS` configurados.
+6. Backup previo + plan de rollback.
+7. Smoke tests post-deploy y monitoreo activado.
+
+---
+
+## 11) Anexos
+
+### 11.1 Convenciones sugeridas
+
+* **Ramas**: `main` (estable) · `dev` (integración) · `feature/*` (unidad de trabajo).
+* **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`).
+* **Versionado**: SemVer (`MAJOR.MINOR.PATCH`).
+
+### 11.2 Plantillas útiles
+
+* **Issue**: `As a <rol> I want <objetivo> so that <valor>`, criterios de aceptación, riesgos.
+* **PR**: alcance, pruebas, impacto en datos, checklist.
+
+---
+
+> **Nota**: este seguimiento se basa en el repositorio y los últimos cambios observables. Cualquier diferencia con el estado real (p.ej. despliegue/infra) se ajustará tras una revisión conjunta del entorno y prioridades de negocio.
