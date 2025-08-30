@@ -221,4 +221,4 @@ REST_FRAMEWORK = {
 }
 
 # =========== Varios ===========
-DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField" 
