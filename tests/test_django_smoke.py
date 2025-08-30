@@ -1,7 +1,6 @@
-def test_django_settings(django_settings):
-    # El settings se cargó y apunta al módulo correcto
-    assert django_settings.ROOT_URLCONF == "academia_project.urls"
-    # Comprobamos que apps propias estén instaladas
-    assert "academia_horarios" in django_settings.INSTALLED_APPS
-    assert "academia_core.apps.AcademiaCoreConfig" in django_settings.INSTALLED_APPS
+from django.conf import settings as dj_settings
 
+def test_django_settings():
+    assert dj_settings.ROOT_URLCONF == "academia_project.urls"
+    assert "academia_horarios" in dj_settings.INSTALLED_APPS
+    assert "academia_core.apps.AcademiaCoreConfig" in dj_settings.INSTALLED_APPS
