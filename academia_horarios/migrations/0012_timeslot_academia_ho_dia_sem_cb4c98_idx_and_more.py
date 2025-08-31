@@ -4,7 +4,7 @@ from django.db.models import Q, F
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("academia_horarios", "0011_ULTIMA_MIGRACION"),  # <-- reemplazá por tu última
+        ("academia_horarios", "0011_docente_dni.py"),  # <-- reemplazá por tu última
     ]
 
     operations = [
