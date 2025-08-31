@@ -4,13 +4,12 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
-# 🚦 Ejecuta estos tests SOLO si RUN_STRICT_HORARIOS_TESTS=1
-if os.getenv("RUN_STRICT_HORARIOS_TESTS") != "1":
-    pytest.skip(
-        "Saltando tests de validación de horarios. "
-        "Actívalos con RUN_STRICT_HORARIOS_TESTS=1.",
-        allow_module_level=True,
-    )
+# Ejecutar SOLO si RUN_STRICT_HORARIOS_TESTS=1
+RUN_STRICT = os.getenv("RUN_STRICT_HORARIOS_TESTS") == "1"
+pytestmark = [
+    pytest.mark.django_db,
+    pytest.mark.skipif(not RUN_STRICT, reason="RUN_STRICT_HORARIOS_TESTS!=1; skipping module"),
+]
 
 pytestmark = pytest.mark.django_db
 
