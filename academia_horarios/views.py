@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.db.models import Sum
 from django.contrib import messages
-from .models import Plan, MateriaEnPlan, Comision, Periodo, HorarioClase, hc_asignadas, hc_requeridas, TimeSlot
+from .models import Plan, MateriaEnPlan, Comision, Periodo, HorarioClase, hc_asignadas, hc_requeridas, TimeSlot, Docente
 from .forms import HorarioInlineForm
 from datetime import time
 from django.http import JsonResponse
@@ -101,6 +101,7 @@ def comision_detail(request, pk):
             "horas_asignadas": horas_asignadas,
             "horas_restantes": horas_restantes,
             "bloqueado_por_tope": bloqueado_por_tope,
+            "docentes": Docente.objects.order_by("apellido_nombre"),
         }
     )
 

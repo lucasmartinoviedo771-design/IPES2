@@ -4,6 +4,6 @@
 <form method="post">{% csrf_token %}
   <p>¿Eliminar {{ object }}?</p>
   <button type="submit">Sí, borrar</button>
-  <a href="{% url 'panel_horario_list' %}" role="button" class="secondary">Cancelar</a>
+  <a href="{% url 'panel_comision' object.comision_id %}" role="button" class="secondary">Cancelar</a>
 </form>
 {% endblock %}

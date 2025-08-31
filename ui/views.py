@@ -8,19 +8,22 @@ from django.views.generic import (
     ListView,
     DetailView,
 )
-from django.shortcuts import redirect
+from django.shortcuts import redirect, get_object_or_404
 from django.db.models import Q
 from django.views import View
 from django.http import HttpResponseForbidden
 from django.contrib import messages
 from django.db import transaction
 from django.apps import apps
+from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_POST
 
-# Modelos del core
+# Modelos
 from academia_core.models import Estudiante, Docente
+from academia_horarios.models import Comision, TimeSlot, HorarioClase
+from academia_horarios import services
 
 # Formularios de la app UI
-# NOTA: asegúrate de que estos nombres existan tal cual en ui/forms.py
 from .forms import (
     EstudianteNuevoForm,
     InscripcionProfesoradoForm,
@@ -40,18 +43,15 @@ def resolve_estudiante_from_request(request):
     - Si llega ?est=<ID> -> ese registro (si existe).
     """
     user = request.user
-    # 1) si el user tiene perfil Estudiante
     if hasattr(user, "estudiante"):
         return user.estudiante
 
-    # 2) si viene ?est=ID
     est_id = request.GET.get("est")
     if est_id:
         try:
             return Estudiante.objects.get(pk=est_id)
         except Estudiante.DoesNotExist:
             return None
-
     return None
 
 
@@ -60,8 +60,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "ui/dashboard.html"
 
     def dispatch(self, request, *args, **kwargs):
-        # Redirección suave si el rol es Estudiante
-        role = request.session.get("active_role") # Usar el rol de la sesión
+        role = request.session.get("active_role")
         if role and role.lower().startswith("estudiante"):
             try:
                 return redirect(reverse("ui:carton_estudiante"))
@@ -77,11 +76,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         return ctx
 
 
-# ---------- Estudiantes: listado / detalle ----------
+# ---------- Vistas de Personas (Estudiantes y Docentes) ----------
 class EstudianteListView(LoginRequiredMixin, ListView):
-    """
-    Listado de estudiantes con buscador simple.
-    """
     model = Estudiante
     template_name = "ui/personas/estudiantes_list.html"
     context_object_name = "items"
@@ -92,10 +88,8 @@ class EstudianteListView(LoginRequiredMixin, ListView):
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
-                Q(apellido__icontains=q)
-                | Q(nombre__icontains=q)
-                | Q(dni__icontains=q)
-                | Q(email__icontains=q)
+                Q(apellido__icontains=q) | Q(nombre__icontains=q) |
+                Q(dni__icontains=q) | Q(email__icontains=q)
             )
         return qs
 
@@ -104,32 +98,18 @@ class EstudianteListView(LoginRequiredMixin, ListView):
         ctx["q"] = self.request.GET.get("q", "")
         return ctx
 
-
 class EstudianteDetailView(LoginRequiredMixin, DetailView):
-    """
-    Ficha básica (solo lectura) del estudiante.
-    """
     model = Estudiante
     template_name = "ui/personas/estudiantes_detail.html"
     context_object_name = "obj"
 
-
-# ---------- Estudiantes: alta ----------
 class NuevoEstudianteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
-    """
-    Alta de estudiantes — autorizado para Bedel / Secretaría / Admin.
-    """
     permission_required = "academia_core.add_estudiante"
     allowed_roles = ["Bedel", "Secretaría", "Admin"]
-
     form_class = EstudianteNuevoForm
     template_name = "ui/personas/estudiante_form.html"
-
-    # Dejamos el mismo flujo: al guardar, volver a la misma vista para cargar varios
     success_url = reverse_lazy("ui:estudiante_nuevo")
 
-
-# ---------- Docentes: listado (por si lo necesitás) ----------
 class DocenteListView(LoginRequiredMixin, ListView):
     model = Docente
     template_name = "ui/personas/docentes_list.html"
@@ -141,10 +121,8 @@ class DocenteListView(LoginRequiredMixin, ListView):
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
-                Q(apellido__icontains=q)
-                | Q(nombre__icontains=q)
-                | Q(dni__icontains=q)
-                | Q(email__icontains=q)
+                Q(apellido__icontains=q) | Q(nombre__icontains=q) |
+                Q(dni__icontains=q) | Q(email__icontains=q)
             )
         return qs
 
@@ -153,22 +131,15 @@ class DocenteListView(LoginRequiredMixin, ListView):
         ctx["q"] = self.request.GET.get("q", "")
         return ctx
 
-
-# ---------- Docentes: alta ----------
 class NuevoDocenteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
-    """
-    Alta de docentes — SOLO Secretaría y Admin.
-    """
     permission_required = "academia_core.add_docente"
     allowed_roles = ["Secretaría", "Admin"]
-
     form_class = NuevoDocenteForm
     template_name = "ui/personas/docente_form.html"
-
     success_url = reverse_lazy("ui:docente_nuevo")
 
 
-# ---------- Inscripciones ----------
+# ---------- Vistas de Inscripciones ----------
 class InscribirCarreraView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     """
     Pantalla de Inscripción a Carrera (placeholder).
@@ -179,100 +150,74 @@ class InscribirCarreraView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     template_name = "ui/inscripciones/carrera.html"
     extra_context = {"page_title": "Inscribir a Carrera"}
 
-
 class InscribirMateriaView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
-    """
-    UI dinámica: estudiante + carrera + plan + materias.
-    Paso 1: solo visualiza y permite marcar; aún no guarda.
-    """
     template_name = "ui/inscripciones/materia.html"
     allowed_roles = ["Admin", "Secretaría", "Bedel", "Docente", "Estudiante"]
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        # para preselección por ?est=
         ctx["prefill_est"] = self.request.GET.get("est") or ""
-        # selector de estudiantes
-        ctx["estudiantes"] = (
-            Estudiante.objects.all()
-            .order_by("apellido", "nombre")
-            .values("id", "apellido", "nombre", "dni")
-        )
+        ctx["estudiantes"] = Estudiante.objects.all().order_by("apellido", "nombre").values("id", "apellido", "nombre", "dni")
         return ctx
 
-
 class InscribirFinalView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
-    """
-    Pantalla de Inscripción a Mesas de Final (inscribir terceros).
-    Habilitada para Secretaría / Admin / Bedel.
-    """
     allowed_roles = ["Secretaría", "Admin", "Bedel"]
     permission_required = "academia_core.enroll_others"
     template_name = "ui/inscripciones/final.html"
     extra_context = {"page_title": "Inscribir a Mesa de Final"}
 
-
 class InscripcionProfesoradoView(RolesPermitidosMixin, LoginRequiredMixin, CreateView):
-    allowed_roles = {"Admin", "Secretaría", "Bedel"}   # roles habilitados
-
+    allowed_roles = {"Admin", "Secretaría", "Bedel"}
     template_name = "ui/inscripciones/inscripcion_profesorado_form.html"
     form_class = InscripcionProfesoradoForm
     success_url = reverse_lazy("ui:dashboard")
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        est = self.request.GET.get("est")
-        if est:
+        if est := self.request.GET.get("est"):
             kwargs["initial_estudiante"] = est
         return kwargs
 
     def form_valid(self, form):
-        obj = form.save()  # guarda la inscripción (EstudianteProfesorado)
+        obj = form.save()
         cd = form.cleaned_data
-
-        # Carga el modelo RequisitosIngreso sin importar la app
         RequisitosIngreso = apps.get_model("academia_core", "RequisitosIngreso")
-
+        req_fields = [
+            "req_dni", "req_cert_med", "req_fotos", "req_folios",
+            "req_titulo_sec", "req_titulo_tramite", "req_adeuda",
+            "req_adeuda_mats", "req_adeuda_inst", "req_titulo_sup",
+            "req_incumbencias", "req_condicion",
+        ]
         RequisitosIngreso.objects.update_or_create(
             inscripcion=obj,
-            defaults={k: cd.get(k) for k in [
-                "req_dni","req_cert_med","req_fotos","req_folios",
-                "req_titulo_sec","req_titulo_tramite","req_adeuda",
-                "req_adeuda_mats","req_adeuda_inst",
-                "req_titulo_sup","req_incumbencias",
-                "req_condicion",
-            ]}
+            defaults={k: cd.get(k) for k in req_fields}
         )
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         form = ctx.get("form")
-        estado = None
-        is_cert = False
+        estado, is_cert = None, False
         if form:
             if form.is_bound and form.is_valid():
                 estado, is_cert = form.compute_estado_admin()
             elif not form.is_bound and form.initial:
-                # Use the new method with initial data
                 estado, is_cert = form._calculate_estado_from_data(form.initial)
-        ctx["estado_admin"] = estado
-        ctx["is_cert_docente"] = is_cert
-        ctx["CERT_DOCENTE_LABEL"] = CERT_DOCENTE_LABEL
+        ctx.update({
+            "estado_admin": estado,
+            "is_cert_docente": is_cert,
+            "CERT_DOCENTE_LABEL": CERT_DOCENTE_LABEL,
+        })
         return ctx
 
 
+# ---------- Vistas Académicas ----------
 class CorrelatividadesView(LoginRequiredMixin, RolesAllowedMixin, FormView):
-    """
-    Configurar correlatividades por espacio de un plan.
-    Acceso: Secretaría y Admin.
-    """
     allowed_roles = {"Secretaría", "Admin"}
     template_name = "ui/planes/correlatividades_form.html"
     form_class = CorrelatividadesForm
     success_url = reverse_lazy("ui:correlatividades")
 
-    # Valores por defecto (ajustá si tus modelos usan otros nombres/choices)
     APP_LABEL = "academia_core"
     CORR_MODEL = "Correlatividad"
     TIPO_CURSAR = "CURSAR"
@@ -281,57 +226,41 @@ class CorrelatividadesView(LoginRequiredMixin, RolesAllowedMixin, FormView):
 
     def form_valid(self, form):
         Correlatividad = apps.get_model(self.APP_LABEL, self.CORR_MODEL)
-
-        plan = form.cleaned_data["plan"]
-        espacio = form.cleaned_data["espacio"]
-        reg_ids = [int(x) for x in (form.cleaned_data["correlativas_regular"] or [])]
-        apr_ids = [int(x) for x in (form.cleaned_data["correlativas_aprobada"] or [])]
+        cd = form.cleaned_data
+        plan, espacio = cd["plan"], cd["espacio"]
+        reg_ids = [int(x) for x in (cd["correlativas_regular"] or [])]
+        apr_ids = [int(x) for x in (cd["correlativas_aprobada"] or [])]
 
         try:
             with transaction.atomic():
-                # Borramos definiciones previas (para ese plan+espacio) y recreamos
                 Correlatividad.objects.filter(plan=plan, espacio=espacio).delete()
-
-                # REGULAR
                 for rid in reg_ids:
                     Correlatividad.objects.create(
-                        plan=plan,
-                        espacio=espacio,
-                        requiere_espacio_id=rid,
-                        tipo=self.TIPO_CURSAR,
-                        requisito=self.REQUISITO_REGULAR,
+                        plan=plan, espacio=espacio, requiere_espacio_id=rid,
+                        tipo=self.TIPO_CURSAR, requisito=self.REQUISITO_REGULAR
                     )
-                # APROBADA
                 for aid in apr_ids:
                     Correlatividad.objects.create(
-                        plan=plan,
-                        espacio=espacio,
-                        requiere_espacio_id=aid,
-                        tipo=self.TIPO_CURSAR,
-                        requisito=self.REQUISITO_APROBADA,
+                        plan=plan, espacio=espacio, requiere_espacio_id=aid,
+                        tipo=self.TIPO_CURSAR, requisito=self.REQUISITO_APROBADA
                     )
-
             messages.success(self.request, "Correlatividades guardadas correctamente.")
         except LookupError:
-            messages.error(
-                self.request,
-                "No encuentro el modelo de correlatividades. Ajustá APP_LABEL/CORR_MODEL o pasame tu models.py y lo adapto."
-            )
+            messages.error(self.request, "Modelo de correlatividades no encontrado.")
         return super().form_valid(form)
 
 
-# --- Cartón e Histórico del Estudiante ---
+# --- Vistas del Estudiante ---
 class CartonEstudianteView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     template_name = "ui/estudiante/carton.html"
     allowed_roles = ["Estudiante", "Bedel", "Secretaría", "Admin"]
-
 
 class HistoricoEstudianteView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     template_name = "ui/estudiante/historico.html"
     allowed_roles = ["Estudiante", "Bedel", "Secretaría", "Admin"]
 
 
-# --- Opcional: Vista para cambiar de rol --- 
+# --- Vista para cambiar de rol ---
 class SwitchRoleView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         new_role = request.POST.get("role")
@@ -342,3 +271,69 @@ class SwitchRoleView(LoginRequiredMixin, View):
             return HttpResponseForbidden("No tenés ese rol.")
         request.session["active_role"] = new_role
         return redirect(reverse(ROLE_HOME.get(new_role, "ui:dashboard")))
+
+
+# --- Vistas para Comisiones (agregadas) ---
+def _redir_comision(comision):
+    """
+    Cambiá este redirect al name real de tu detalle de comisión.
+    Si ya tenés una vista llamada 'comision_detail' namespaced en ui, dejá como está.
+    """
+    return redirect("ui:comision_detail", pk=comision.pk)
+
+@require_POST
+def asignar_docente(request, pk):
+    comision = get_object_or_404(Comision, pk=pk)
+    docente_id = request.POST.get("docente_id")
+    if not docente_id:
+        messages.error(request, "Debés elegir un docente.")
+        return _redir_comision(comision)
+
+    docente = get_object_or_404(Docente, pk=docente_id)
+    try:
+        services.asignar_docente_a_comision(comision, docente)
+        messages.success(request, "Docente asignado con éxito.")
+    except ValidationError as e:
+        messages.error(request, e.message if hasattr(e, "message") else str(e))
+    return _redir_comision(comision)
+
+@require_POST
+def agregar_horario(request, pk):
+    """
+    Crea (o reutiliza) un TimeSlot y agrega un HorarioClase a la comisión.
+    Valida con HorarioClase.clean(): bloque ocupado, tope HC, y conflicto docente.
+    """
+    comision = get_object_or_404(Comision, pk=pk)
+
+    try:
+        dia_semana = int(request.POST.get("dia_semana"))
+        inicio = request.POST.get("inicio")  # "HH:MM"
+        fin = request.POST.get("fin")        # "HH:MM"
+    except Exception:
+        messages.error(request, "Datos de horario inválidos.")
+        return _redir_comision(comision)
+
+    docente_id = request.POST.get("docente_id") or None
+    aula = (request.POST.get("aula") or "").strip()
+
+    ts, _ = TimeSlot.objects.get_or_create(dia_semana=dia_semana, inicio=inicio, fin=fin)
+
+    hc = HorarioClase(comision=comision, timeslot=ts, aula=aula)
+    if docente_id:
+        hc.docente = get_object_or_404(Docente, pk=docente_id)
+
+    try:
+        hc.full_clean()  # dispara tu clean() con todas las validaciones
+        hc.save()
+        messages.success(request, "Horario agregado correctamente.")
+    except ValidationError as e:
+        # juntar errores amigables
+        if hasattr(e, "message_dict"):
+            msgs = []
+            for field, errs in e.message_dict.items():
+                for err in errs:
+                    msgs.append(f"{field}: {err}")
+            messages.error(request, " • ".join(msgs))
+        else:
+            messages.error(request, e.message if hasattr(e, "message") else str(e))
+    return _redir_comision(comision)

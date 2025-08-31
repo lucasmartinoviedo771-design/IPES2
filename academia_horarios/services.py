@@ -1,38 +1,77 @@
-from datetime import time
+# academia_horarios/services.py
+from django.apps import apps
+from django.core.exceptions import ValidationError
 
-GRILLAS = {
-    "manana": {
-        "start": time(7,45), "end": time(12,45),
-        "breaks": [(time(9,5), time(9,15)), (time(10,35), time(10,45))],
-    },
-    "tarde": {
-        "start": time(13,0), "end": time(18,0),
-        "breaks": [(time(14,20), time(14,30)), (time(15,50), time(16,0))],
-    },
-    "vespertino": {
-        "start": time(18,10), "end": time(23,10),
-        "breaks": [(time(19,30), time(19,40)), (time(21,0), time(21,10))],
-    },
-    "sabado": {
-        "start": time(9,0), "end": time(14,0),
-        "breaks": [(time(10,20), time(10,30)), (time(11,50), time(12,0))],
-    },
-}
+def _solapa(h1_ini, h1_fin, h2_ini, h2_fin) -> bool:
+    return (h1_ini < h2_fin) and (h2_ini < h1_fin)
 
-BLOCK_MIN = 40
+def detectar_conflicto_docente(docente, dia_semana, hora_inicio, hora_fin, excluir_comision_id=None):
+    """Chequea choques del docente con otros bloques ese mismo día."""
+    HorarioClase = apps.get_model("academia_horarios", "HorarioClase")
+    qs = (
+        HorarioClase.objects
+        .filter(docente=docente, timeslot__dia_semana=dia_semana)
+        .select_related("timeslot")
+    )
+    if excluir_comision_id:
+        qs = qs.exclude(comision_id=excluir_comision_id)
 
-def mins(t: time) -> int: return t.hour*60 + t.minute
+    for hc in qs:
+        ini = hc.timeslot.inicio
+        fin = hc.timeslot.fin
+        if _solapa(ini, fin, hora_inicio, hora_fin):
+            return hc
+    return None
 
-def es_multiplo_40(t: time) -> bool:
-    return mins(t) % BLOCK_MIN in (mins(GRILLAS["manana"]["start"]) % BLOCK_MIN, 0)
+def asignar_docente_a_comision(comision, docente):
+    """
+    Asigna el docente si NO hay choque de horarios con sus otras comisiones.
+    (Sin límite semanal: puede tener todas las horas que quiera.)
+    """
+    HorarioClase = apps.get_model("academia_horarios", "HorarioClase")
+    for hc in HorarioClase.objects.filter(comision=comision).select_related("timeslot"):
+        ts = hc.timeslot
+        conflicto = detectar_conflicto_docente(
+            docente=docente,
+            dia_semana=ts.dia_semana,
+            hora_inicio=ts.inicio,
+            hora_fin=ts.fin,
+            excluir_comision_id=comision.id,
+        )
+        if conflicto:
+            raise ValidationError(
+                f"Conflicto: el docente ya está asignado en ese rango (comisión {conflicto.comision_id}).",
+                code="conflicto_docente",
+            )
+    comision.docente = docente
+    comision.save(update_fields=["docente"])
+    return comision
 
-def atraviesa_recreo(turno: str, inicio: time, fin: time) -> bool:
-    for a,b in GRILLAS[turno]["breaks"]:
-        if (inicio < b and fin > a):
-            # se superpone con el recreo
-            return True
-    return False
+def inscribir_estudiante_en_comision(estudiante, comision):
+    """
+    Inscribe al estudiante verificando:
+    - no duplicado en la misma comisión
+    - no choque de horarios con otras comisiones ya inscriptas
+    """
+    Inscripcion = apps.get_model("academia_core", "InscripcionComision")  # ajustá si tu modelo se llama distinto
+    HorarioClase = apps.get_model("academia_horarios", "HorarioClase")
 
-def dentro_de_jornada(turno: str, inicio: time, fin: time) -> bool:
-    s, e = GRILLAS[turno]["start"], GRILLAS[turno]["end"]
-    return (inicio >= s) and (fin <= e)
+    if Inscripcion.objects.filter(estudiante=estudiante, comision=comision).exists():
+        raise ValidationError("Ya estás inscripto en esta comisión.", code="duplicado")
+
+    mis_comisiones = Inscripcion.objects.filter(estudiante=estudiante).values_list("comision_id", flat=True)
+    mis_horarios = HorarioClase.objects.filter(comision_id__in=mis_comisiones).select_related("timeslot")
+    nuevos = HorarioClase.objects.filter(comision=comision).select_related("timeslot")
+
+    for nuevo in nuevos:
+        for viejo in mis_horarios:
+            if (nuevo.timeslot.dia_semana == viejo.timeslot.dia_semana) and _solapa(
+                nuevo.timeslot.inicio, nuevo.timeslot.fin,
+                viejo.timeslot.inicio, viejo.timeslot.fin
+            ):
+                raise ValidationError("Conflicto de horarios con otra comisión ya inscripta.", code="choque_estudiante")
+
+    return Inscripcion.objects.create(estudiante=estudiante, comision=comision)
+
+
+# No usamos .env ni settings para topes. Solo evitamos solapamientos de horarios del docente.

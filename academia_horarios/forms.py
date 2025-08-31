@@ -1,6 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import HorarioClase, TimeSlot, Comision, Docente, Turno
+from . import services  # tu detector de conflictos
 
 DIAS_CHOICES = [
     (1, "Lunes"),
@@ -11,10 +12,6 @@ DIAS_CHOICES = [
     (6, "Sábado"),
     (7, "Domingo"),
 ]
-
-from django import forms
-from django.core.exceptions import ValidationError
-from .models import HorarioClase, TimeSlot, Comision, Docente, Turno
 
 TURNOS = (
     ("M", "Mañana"),
@@ -89,34 +86,32 @@ class HorarioInlineForm(forms.Form):
             hc.docentes.set(self.cleaned_data["docentes"])
         return hc
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # docentes siempre habilitados
-        self.fields["docentes"].queryset = Docente.objects.order_by("apellido_nombre")
-
-        # Si vino POST, podes ajustar el queryset del bloque a lo que corresponde
-        data = self.data or self.initial
-        try:
-            dia = int(data.get("dia", 0))
-        except Exception:
-            dia = 0
-        if dia:
-            self.fields["bloque"].queryset = TimeSlot.objects.filter(dia_semana=dia).order_by("inicio")
+class HorarioClaseForm(forms.ModelForm):
+    class Meta:
+        model = HorarioClase
+        fields = ["timeslot", "aula", "docentes"]
 
     def clean(self):
-        cd = super().clean()
-        ts = cd.get("bloque")
-        dia = cd.get("dia")
-        if ts and dia and ts.dia_semana != int(dia):
-            self.add_error("bloque", "El bloque no coincide con el día seleccionado.")
-        return cd
+        cleaned = super().clean()
+        timeslot = cleaned.get("timeslot")
+        docentes = cleaned.get("docentes")  # esto es un queryset de Docente
 
-    def save(self, comision):
-        hc = HorarioClase.objects.create(
-            comision=comision,
-            timeslot=self.cleaned_data["bloque"],
-            aula=self.cleaned_data.get("aula") or ""
-        )
-        if self.cleaned_data.get("docentes"):
-            hc.docentes.set(self.cleaned_data["docentes"])
-        return hc
+        # Si no hay timeslot o comision todavía, no validamos
+        if not timeslot or not self.instance or not self.instance.comision_id:
+            return cleaned
+
+        # chequeo por cada docente seleccionado
+        for d in docentes:
+            conflicto = services.detectar_conflicto_docente(
+                docente=d,
+                dia_semana=timeslot.dia_semana,
+                hora_inicio=timeslot.inicio,
+                hora_fin=timeslot.fin,
+                excluir_comision_id=self.instance.comision_id,
+            )
+            if conflicto:
+                raise ValidationError({
+                    "docentes": f"{d} ya tiene una comisión en ese horario (id {conflicto.comision_id})."
+                })
+
+        return cleaned

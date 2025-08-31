@@ -9,6 +9,7 @@ from .views import (
     CorrelatividadesView,
 )
 from . import api
+from . import views
 
 app_name = "ui"
 
@@ -44,4 +45,8 @@ urlpatterns = [
     path("api/materias", api.api_materias_por_plan, name="api_materias_por_plan"),
     path("api/correlatividades", api.api_correlatividades_por_espacio, name="api_correlatividades_por_espacio"),
     path("api/calcular-estado-administrativo/", api.api_calcular_estado_administrativo, name="api_calcular_estado_administrativo"),
+
+    # Rutas para comisiones
+    path("comisiones/<int:pk>/asignar-docente/", views.asignar_docente, name="asignar_docente"),
+    path("comisiones/<int:pk>/agregar-horario/", views.agregar_horario, name="agregar_horario"),
 ]

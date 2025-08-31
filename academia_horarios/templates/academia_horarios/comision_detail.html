@@ -18,7 +18,7 @@
   <tbody>
   {% for h in horarios %}
     <tr>
-      <td>{{ h.timeslot.dia_semana }}</td>
+      <td>{{ h.timeslot.get_dia_semana_display }}</td>
       <td>{{ h.timeslot.inicio }}</td>
       <td>{{ h.timeslot.fin }}</td>
       <td>{% for d in h.docentes.all %}{{ d }}{% if not forloop.last %}, {% endif %}{% empty %}<em>Sin docente</em>{% endfor %}</td>
@@ -101,6 +101,23 @@
 
   <button {% if bloqueado_por_tope %}disabled title="Tope de horas alcanzado"{% endif %}>Agregar</button>
 </form>
+
+{% comment %}
+{# --- Asignar docente --- #}
+<form method="post" action="{% url 'ui:asignar_docente' pk=comision.id %}">
+  {% csrf_token %}
+  <label>Docente:</label>
+  <select name="docente_id" required>
+    <option value="">-- elegir --</option>
+    {% for d in docentes %}
+      <option value="{{ d.id }}">{{ d.apellido_nombre }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Asignar docente</button>
+</form>
+{% endcomment %}
+
+
 
 <script>
 async function cargarBloques() {
