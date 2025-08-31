@@ -2,6 +2,49 @@
 
 from django.db import migrations, models
 
+TABLE = "academia_horarios_horarioclase"
+
+def drop_unique_comision_timeslot_mysql(apps, schema_editor):
+    """
+    Busca y elimina de forma segura cualquier índice UNIQUE existente
+    sobre (comision_id, timeslot_id) en MySQL.
+    """
+    # En CI (SQLite) o en otros motores de BD, no hacemos nada
+    if schema_editor.connection.vendor != "mysql":
+        return
+
+    # En MySQL, buscamos el nombre del índice dinámicamente y lo eliminamos
+    with schema_editor.connection.cursor() as c:
+        c.execute(
+            """
+            SELECT s.INDEX_NAME
+            FROM information_schema.STATISTICS s
+            WHERE s.TABLE_SCHEMA = DATABASE()
+              AND s.TABLE_NAME = %s
+              AND s.NON_UNIQUE = 0
+            GROUP BY s.INDEX_NAME
+            HAVING SUM(CASE WHEN s.COLUMN_NAME='comision_id' THEN 1 ELSE 0 END) > 0
+               AND SUM(CASE WHEN s.COLUMN_NAME='timeslot_id' THEN 1 ELSE 0 END) > 0
+            """,
+            [TABLE],
+        )
+        row = c.fetchone()
+        if row:
+            idx = row[0]
+            # Escapamos el nombre del índice con backticks para evitar errores
+            c.execute(f"ALTER TABLE `{TABLE}` DROP INDEX `{idx}`;")
+
+def recreate_unique_mysql(apps, schema_editor):
+    """
+    Función de rollback: vuelve a crear un índice UNIQUE con un nombre conocido.
+    """
+    if schema_editor.connection.vendor != "mysql":
+        return
+    with schema_editor.connection.cursor() as c:
+        # Nota: El nombre del índice puede no ser el original, pero restaura la restricción.
+        c.execute(
+            f"ALTER TABLE `{TABLE}` ADD UNIQUE KEY `uniq_comision_timeslot` (comision_id, timeslot_id);"
+        )
 
 class Migration(migrations.Migration):
 
@@ -10,10 +53,25 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterUniqueTogether(
-            name="horarioclase",
-            unique_together=set(),
+        # Paso 1: Eliminar la restricción UNIQUE vieja de forma robusta.
+        # Separamos la operación de base de datos (SQL crudo para MySQL)
+        # de la operación de estado (lo que Django cree que pasó).
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(
+                    code=drop_unique_comision_timeslot_mysql,
+                    reverse_code=recreate_unique_mysql,
+                )
+            ],
+            state_operations=[
+                migrations.AlterUniqueTogether(
+                    name="horarioclase",
+                    unique_together=set(),
+                )
+            ],
         ),
+        # Paso 2: Añadir la nueva restricción 'UniqueConstraint', que es la
+        # forma moderna y recomendada de definir restricciones.
         migrations.AddConstraint(
             model_name="horarioclase",
             constraint=models.UniqueConstraint(
