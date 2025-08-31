@@ -1,5 +1,5 @@
 from django import forms
-from .models import InscripcionCarrera, InscripcionMateria, InscripcionMesa
+from .models import EstudianteProfesorado, InscripcionMateria, InscripcionMesa, Estudiante, Profesorado, PlanEstudios
 
 class BaseStyledModelForm(forms.ModelForm):
     """Aplica clases del tema automáticamente (input/select/textarea/file)."""
@@ -15,12 +15,21 @@ class BaseStyledModelForm(forms.ModelForm):
 
 class InscripcionCarreraForm(BaseStyledModelForm):
     class Meta:
-        model = InscripcionCarrera
-        fields = ["estudiante", "carrera", "cohorte", "turno", "estado"]
+        model = EstudianteProfesorado
+        fields = ["estudiante", "profesorado", "plan", "cohorte"]
         widgets = {
             "cohorte": forms.NumberInput(attrs={"min":2000, "max":2100}),
-            "turno": forms.TextInput(attrs={"placeholder":"Mañana / Tarde / Noche"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # --- DATA en combos ---
+        self.fields['estudiante'].queryset  = Estudiante.objects.filter(activo=True).order_by('apellido','nombre')
+        self.fields['profesorado'].queryset = Profesorado.objects.all().order_by('nombre')
+        # Plan arranca vacío; lo carga AJAX:
+        self.fields['plan'].queryset = PlanEstudios.objects.none()
+        self.fields['plan'].empty_label = '---------'
 
 class InscripcionMateriaForm(BaseStyledModelForm):
     class Meta:

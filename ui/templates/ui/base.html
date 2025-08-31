@@ -5,7 +5,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}IPES Paulo Freire{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'ui/css/tema-ipes.css' %}?v=7">
+  {% block extra_head %}{% endblock %}
+  <link rel="stylesheet" href="{% static 'academia_core/tema-ipes.css' %}?v=10">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
@@ -30,30 +31,51 @@
   <div class="sidebar-title">Panel de Gestión</div>
 
   <nav class="nav">
-
+    <!-- 1) Panel -->
     <a href="{% url 'ui:dashboard' %}" class="{% block nav_dashboard %}{% endblock %}">Panel</a>
 
-    <!-- Cursos (si querés submenú, copiá el patrón de Estudiantes) -->
-    <a href="#" class="{% block nav_cursos %}{% endblock %}">Cursos</a>
-
-    <!-- Estudiantes con submenú en modo acordeón -->
-    <div class="nav-item has-children {% block open_estudiantes %}{% endblock %}">
+    <!-- 2) Estudiantes (con submenú) -->
+    <div class="nav-item has-children">
       <a href="#" class="nav-parent">Estudiantes</a>
-      <div class="subnav" id="sub-estudiantes">
+      <div class="subnav">
         <a href="{% url 'ui:estudiantes_list' %}" class="{% block nav_estudiantes_list %}{% endblock %}">Listado</a>
         <a href="{% url 'ui:estudiante_nuevo' %}" class="{% block nav_estudiantes_new %}{% endblock %}">Nuevo Estudiante</a>
+        <a href="{% url 'ui:carton_estudiante' %}" class="{% block nav_estudiantes_carton %}{% endblock %}">Cartón</a>
+        <a href="#" class="{% block nav_estudiantes_corr %}{% endblock %}">Correlatividad</a>
+        <a href="{% url 'ui:historico_estudiante' %}" class="{% block nav_estudiantes_hist %}{% endblock %}">Histórico</a>
+        <a href="#" class="{% block nav_estudiantes_docs %}{% endblock %}">Documentos importantes</a>
       </div>
     </div>
 
-    <a href="#" class="{% block nav_horarios %}{% endblock %}">Horarios</a>
-
-    <!-- INSCRIPCIÓN con submenú -->
-    <div class="nav-item has-children {% block open_insc %}{% endblock %}">
-      <a href="#" class="nav-parent">Inscripción</a>
+    <!-- 3) Inscripciones (a Carrera/Materia/Mesa) -->
+    <div class="nav-item has-children">
+      <a href="#" class="nav-parent">Inscripciones</a>
       <div class="subnav">
         <a href="{% url 'insc_carrera_new' %}" class="{% block nav_insc_carrera %}{% endblock %}">a Carrera</a>
         <a href="{% url 'insc_materia_new' %}" class="{% block nav_insc_materia %}{% endblock %}">a Materia</a>
         <a href="{% url 'insc_mesa_new' %}" class="{% block nav_insc_mesa %}{% endblock %}">a Mesa</a>
+      </div>
+    </div>
+
+    <!-- 4) Regularidad -->
+    <a href="#" class="{% block nav_regularidad %}{% endblock %}">Regularidad</a>
+
+    <!-- 5) Final -->
+    <a href="#" class="{% block nav_final %}{% endblock %}">Final</a>
+
+    <!-- 6) Horario -->
+    <a href="#" class="{% block nav_horario %}{% endblock %}">Horario</a>
+
+    <!-- 7) Administración (nombre sugerido para lo “operativo”) -->
+    <div class="nav-item has-children">
+      <a href="#" class="nav-parent">Administración</a>
+      <div class="subnav">
+        <a href="#" class="{% block nav_admin_hab %}{% endblock %}">Habilitaciones</a>
+        <a href="{% url 'ui:docente_nuevo' %}" class="{% block nav_admin_docente %}{% endblock %}">Cargar docente</a>
+        <a href="#" class="{% block nav_admin_carrera %}{% endblock %}">Cargar carrera</a>
+        <a href="#" class="{% block nav_admin_plan %}{% endblock %}">Cargar plan</a>
+        <a href="#" class="{% block nav_admin_materia %}{% endblock %}">Cargar materias</a>
+        <a href="{% url 'ui:correlatividades' %}" class="{% block nav_admin_corr %}{% endblock %}">Cargar correlatividades</a>
       </div>
     </div>
   </nav>
@@ -93,5 +115,6 @@
   });
 })();
 </script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

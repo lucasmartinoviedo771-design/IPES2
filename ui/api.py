@@ -95,12 +95,12 @@ def _first_matching_fk_name(model, *candidates):
 @require_GET
 def api_planes_por_carrera(request):
     """
-    GET /ui/api/planes?prof_id=<id>
-    Devuelve: {"items":[{"id":..., "label":"..."}]}
+    GET /ui/api/planes?profesorado=<id> o ?prof=<id>
+    Devuelve: {"planes":[{"id":..., "nombre":"..."}]}
     """
-    prof_id = request.GET.get("prof_id")
+    prof_id = request.GET.get('profesorado') or request.GET.get('prof') or ''
     if not prof_id:
-        return HttpResponseBadRequest("Falta prof_id")
+        return HttpResponseBadRequest("Falta profesorado o prof")
 
     PlanModel = _find_plan_model()
     if not PlanModel:
@@ -122,23 +122,14 @@ def api_planes_por_carrera(request):
         qs = qs.filter(is_active=True)
 
     planes_qs = qs.order_by("pk")
-    items = []
+    planes_data = []
     for p in planes_qs:
         # Ajustá estos getattr a tus campos reales
         nombre = getattr(p, "nombre", None) or str(p)
-        resol  = getattr(p, "resolucion", "") or getattr(p, "codigo", "")
-        anio   = getattr(p, "anio", "")
+        # No necesitamos resol ni anio para este endpoint, solo id y nombre
+        planes_data.append({"id": p.id, "nombre": nombre})
 
-        partes = [nombre]
-        if resol:
-            partes.append(f"Res. {resol}")
-        if anio:
-            partes.append(str(anio))
-
-        label = " — ".join(partes)
-        items.append({"id": p.id, "label": label})
-
-    return JsonResponse({"items": items})
+    return JsonResponse({"planes": planes_data})
 
 @login_required
 @require_GET
