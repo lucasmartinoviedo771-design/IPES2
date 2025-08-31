@@ -1,4 +1,3 @@
-# academia_project/settings.py
 from pathlib import Path
 import os
 from django.core.exceptions import ImproperlyConfigured
@@ -53,15 +52,12 @@ DEFAULT_DEV_SECRET = "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*((
 if DEBUG:
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", DEFAULT_DEV_SECRET)
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "academia.local"]
-    # Permite http en dev (puerto 8000)
-    CSRF_TRUSTED_ORIGINS = getenv_list(
-        "DJANGO_CSRF_TRUSTED_ORIGINS",
-        default=[
-            "http://127.0.0.1:8000",
-            "http://localhost:8000",
-            "http://academia.local:8000",
-        ],
-    )
+    # Orígenes de confianza para CSRF en desarrollo
+    CSRF_TRUSTED_ORIGINS = [
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+        "http://academia.local:8000",
+    ]
 else:
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
     if not SECRET_KEY:
@@ -72,13 +68,14 @@ else:
         raise ImproperlyConfigured("Set DJANGO_ALLOWED_HOSTS (comma separated)")
     ALLOWED_HOSTS = [h.strip() for h in hosts.split(",") if h.strip()]
 
-    # CSRF_TRUSTED_ORIGINS (preferir proporcionarlo por env; si no, derivar de ALLOWED_HOSTS con https)
-    csrf_from_env = getenv_list("DJANGO_CSRF_TRUSTED_ORIGINS")
-    if csrf_from_env:
-        CSRF_TRUSTED_ORIGINS = csrf_from_env
-    else:
-        # Deriva https://<host> para cada host (Django requiere esquema)
-        CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if "://" not in h]
+    # Orígenes de confianza para CSRF en producción (deben ser provistos)
+    CSRF_TRUSTED_ORIGINS = [
+        o.strip()
+        for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+        if o.strip()
+    ]
+    if not CSRF_TRUSTED_ORIGINS:
+        raise ImproperlyConfigured("Set DJANGO_CSRF_TRUSTED_ORIGINS in production")
 
 # Cookies y seguridad (conserva dev fácil y prod endurecido)
 SESSION_COOKIE_SECURE = not DEBUG
@@ -88,21 +85,16 @@ SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
 # Redirect HTTPS / HSTS (configurable por env, con defaults seguros en prod)
-SECURE_SSL_REDIRECT = getenv_bool("DJANGO_SECURE_SSL_REDIRECT", default=not DEBUG)
+SECURE_SSL_REDIRECT = getenv_bool("SECURE_SSL_REDIRECT", default=not DEBUG)
 SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", 31536000 if not DEBUG else 0))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG and SECURE_HSTS_SECONDS > 0
 SECURE_HSTS_PRELOAD = not DEBUG and SECURE_HSTS_SECONDS >= 31536000
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
-# Si estás detrás de un proxy que setea X-Forwarded-Proto, habilitalo por env:
-# DJANGO_SECURE_PROXY_SSL_HEADER="HTTP_X_FORWARDED_PROTO,https"
-_proxy_hdr = os.getenv("DJANGO_SECURE_PROXY_SSL_HEADER")
-if _proxy_hdr:
-    try:
-        name, value = [x.strip() for x in _proxy_hdr.split(",", 1)]
-        SECURE_PROXY_SSL_HEADER = (name, value)  # type: ignore[var-annotated]
-    except Exception:
-        raise ImproperlyConfigured("DJANGO_SECURE_PROXY_SSL_HEADER debe tener formato 'HEADER,valor'")
+# Si estás detrás de un proxy que setea X-Forwarded-Proto, habilítalo por env
+USE_PROXY_SSL_HEADER = getenv_bool("USE_PROXY_SSL_HEADER", default=False)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if USE_PROXY_SSL_HEADER else None
+
 
 # =========== Apps ===========
 INSTALLED_APPS = [
@@ -190,7 +182,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # =========== i18n ===========
 LANGUAGE_CODE = "es-ar"
-TIME_ZONE = "America/Argentina/Buenos_Aires"
+TIME_ZONE = "America/Argentina/Buenos_ Aires"
 USE_I18N = True
 USE_TZ = True
 
@@ -206,7 +198,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # =========== Login / Logout ===========
-LOGIN_URL = "login"              # o "ui:login" si tu URL está namespaced
+LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "/dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
@@ -221,7 +213,7 @@ REST_FRAMEWORK = {
 }
 
 # =========== Varios ===========
-DEFAULT_AUTO_FIELD = "django.db.models.AutoField" 
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
 # --- Solo para CI/local si queremos evitar MySQL en tests ---
 # Si USE_SQLITE_FOR_TESTS=1, usamos SQLite (en vez de MySQL) para pytest
