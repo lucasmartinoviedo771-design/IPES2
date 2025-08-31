@@ -1,26 +1,82 @@
 {% extends "ui/base.html" %}
+{% load form_extras %}
+{% block title %}Nuevo Estudiante · IPES{% endblock %}
+{% block nav_estudiantes %}active{% endblock %}
+{% block nav_estudiantes_new %}active{% endblock %}
+
 {% block content %}
-<div class="p-4">
-  <h1 class="text-xl font-semibold mb-4">Estudiante nuevo</h1>
+  <div class="panel">
+    <h1>Nuevo Estudiante</h1>
 
-  <form method="post" novalidate>
-    {% csrf_token %}
-    {{ form.non_field_errors }}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {% for field in form %}
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="form-grid">
         <div>
-          <label class="block text-sm font-medium mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>
-          {{ field }}
-          {% if field.help_text %}<p class="text-xs text-slate-500 mt-1">{{ field.help_text }}</p>{% endif %}
-          {% for e in field.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}
+          <label for="{{ form.dni.id_for_label }}">DNI</label>
+          {{ form.dni|addclass:"input" }}
         </div>
-      {% endfor %}
-    </div>
 
-    <div class="mt-6 flex gap-2">
-      <button type="submit" class="px-4 py-2 rounded bg-slate-800 text-white">Guardar</button>
-      <a href="{% url 'ui:estudiantes_list' %}" class="px-4 py-2 rounded border">Volver al listado</a>
-    </div>
-  </form>
-</div>
+        <div>
+          <label for="{{ form.apellido.id_for_label }}">Apellido</label>
+          {{ form.apellido|addclass:"input" }}
+        </div>
+
+        <div>
+          <label for="{{ form.nombre.id_for_label }}">Nombre</label>
+          {{ form.nombre|addclass:"input" }}
+        </div>
+
+        <div>
+          <label for="{{ form.fecha_nacimiento.id_for_label }}">Fecha de nacimiento</label>
+          {{ form.fecha_nacimiento|addclass:"input" }}
+        </div>
+
+        <div>
+          <label for="{{ form.lugar_nacimiento.id_for_label }}">Lugar de nacimiento</label>
+          {{ form.lugar_nacimiento|addclass:"input" }}
+        </div>
+
+        <div>
+          <label for="{{ form.email.id_for_label }}">Correo electrónico</label>
+          {{ form.email|addclass:"input" }}
+        </div>
+
+        <div>
+          <label for="{{ form.telefono.id_for_label }}">Teléfono</label>
+          {{ form.telefono|addclass:"input" }}
+        </div>
+
+        <div>
+          <label for="{{ form.localidad.id_for_label }}">Localidad</label>
+          {{ form.localidad|addclass:"input" }}
+        </div>
+
+        <div class="checkbox">
+          {{ form.activo }}
+          <label for="{{ form.activo.id_for_label }}">Activo</label>
+        </div>
+
+        <div>
+          <label for="{{ form.foto.id_for_label }}">Foto</label>
+          {{ form.foto|addclass:"file" }}
+        </div>
+
+        <div>
+          <label for="{{ form.contacto_emergencia_tel.id_for_label }}">Tel. de emergencia</label>
+          {{ form.contacto_emergencia_tel|addclass:"input" }}
+        </div>
+
+        <div>
+          <label for="{{ form.contacto_emergencia_parentesco.id_for_label }}">Parentesco (emergencia)</label>
+          {{ form.contacto_emergencia_parentesco|addclass:"input" }}
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" type="submit">Guardar Estudiante</button>
+        <a class="btn btn-ghost" href="{% url 'ui:estudiantes_list' %}">Volver al listado</a>
+      </div>
+    </form>
+  </div>
 {% endblock %}

@@ -43,6 +43,12 @@ from .views_api import (
     api_correlatividades_por_materia, # NEW IMPORT
 )
 
+from .views_inscripciones import (
+    InscripcionCarreraCreate,
+    InscripcionMateriaCreate,
+    InscripcionMesaCreate,
+)
+
 # CBVs ya existentes
 from .views_cbv import (
     # Estudiantes
@@ -209,4 +215,8 @@ urlpatterns = [
     api_correlatividades_por_materia,
     name="api_correlatividades_por_materia",
     ),
+    # ---------------- Inscripciones -------------------
+    path("inscripciones/carrera/nueva/", InscripcionCarreraCreate.as_view(), name="insc_carrera_new"),
+    path("inscripciones/materia/nueva/", InscripcionMateriaCreate.as_view(), name="insc_materia_new"),
+    path("inscripciones/mesa/nueva/", InscripcionMesaCreate.as_view(), name="insc_mesa_new"),
 ]

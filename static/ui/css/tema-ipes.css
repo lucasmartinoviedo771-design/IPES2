@@ -1,0 +1,170 @@
+:root{
+  --bg:#f6f3ee;
+  --panel:#fff;
+  --sidebar-bg:#efe6d7;
+  --sidebar-hover:#e6dccd;
+  --topbar:#7f7a57;
+  --border:#e5e7eb;
+  --fg:#1f2937;
+  --fg-muted:#374151;
+  --placeholder:#9ca3af;
+  --radius:12px;
+  --shadow:0 10px 30px rgba(0,0,0,.06);
+  --topbar-h: 96px;
+
+  /* Colores de la marca */
+  --olive: #7f7a57;          /* verde oliva (topbar) */
+  --olive-400: #a39d75;      /* oliva suavizado para bordes por defecto */
+  --olive-600: #6e6a4b;      /* oliva más oscuro (hover) */
+  --accent: #b96433;         /* ladrillo (botones) */
+  --accent-600:#a55325;
+  --focus: rgba(185,100,51,.25); /* halo ladrillo */
+}
+
+/* === Topbar (verde, edge-to-edge) === */
+.topbar{
+  position: sticky; top:0; z-index:50;
+  background:var(--topbar); color:#fff; width:100%;
+  box-shadow:0 1px 0 rgba(0,0,0,.05);
+}
+.topbar-inner{
+  max-width:1280px; margin:0 auto;
+  padding:0 16px;
+  min-height:var(--topbar-h);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.brand{display:flex; align-items:center; gap:14px}
+.brand-img{height:84px; width:auto; display:block}           /* 300% respecto a ~28px */
+.brand-title{
+  font-family: Inter, Roboto, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  font-weight: 800; color: #fff; letter-spacing: .2px;
+  font-size: 48px; line-height: 1;
+}
+.account a{color:#fff; text-decoration:none; opacity:.95}
+.account a:hover{opacity:1}
+
+/* === Layout bajo la topbar === */
+.app{display:grid; grid-template-columns:280px 1fr; min-height:calc(100vh - var(--topbar-h))}
+.sidebar{
+  background:var(--sidebar-bg); border-right:1px solid var(--border);
+  padding:16px 12px;
+}
+.sidebar-title{
+  font-family:"Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size:13px; letter-spacing:.4px; text-transform:uppercase;
+  color:var(--fg-muted); margin:6px 8px 10px; opacity:.9;
+}
+.nav a{
+  display:block; padding:10px 12px; margin:4px 0; border-radius:8px;
+  text-decoration:none; color:var(--fg-muted); font-weight:600;
+}
+.nav a:hover{background:var(--sidebar-hover)}
+.nav a.active{background:var(--accent); color:#fff}
+
+/* === Acordeón del menú lateral === */
+.nav-item.has-children .subnav { display: none; }
+.nav-item.has-children.open .subnav { display: block; }
+
+.nav-parent{
+  display:block; padding:10px 12px; margin:4px 0; border-radius:8px;
+  text-decoration:none; color:var(--fg-muted); font-weight:600; cursor:pointer;
+}
+.nav-parent:hover{ background: var(--sidebar-hover); }
+
+/* caret minimal (no “dibujitos” extra) */
+.nav-parent::after{
+  content:"▾"; float:right; opacity:.8; transition: transform .2s;
+}
+.nav-item.open > .nav-parent::after{ transform: rotate(180deg); }
+
+/* submenú */
+.subnav{ margin:8px 0 4px 8px; padding-left:10px; border-left:2px solid #e0d7c8; }
+.subnav a{ font-weight:500; font-size:14px; padding:8px 10px; border-radius:6px; display:block; color:var(--fg-muted); text-decoration:none; }
+.subnav a:hover{ background:#eadfd0; }
+.subnav a.active{ background:#eadfd0; color:var(--fg); }
+
+
+/* Contenido */
+.main{padding:24px}
+.container{max-width:1040px; margin:0 auto}                   /* un poco más angosto */
+
+/* === Panel === */
+.panel{
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); box-shadow:var(--shadow); padding:24px;
+}
+
+/* === Formularios === */
+.form-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  column-gap:24px; row-gap:16px;
+}
+@media (max-width: 900px){ .form-grid{grid-template-columns:1fr} }
+.form-grid > div{min-width:0}
+
+label{display:block; font-size:14px; color:var(--fg); margin-bottom:6px; font-weight:600}
+
+/* Bordes verdes por defecto */
+.input, .select, .file, .textarea{
+  width:100%; box-sizing:border-box;
+  border:2px solid var(--olive-400);
+  background:#fff;
+  border-radius:8px; padding:8px 12px;
+  font-size:15px;
+  transition: box-shadow .15s, border-color .15s, background .15s;
+}
+
+/* Hover: un toque más oscuro en el verde */
+.input:hover, .select:hover, .file:hover, .textarea:hover{
+  border-color: var(--olive-600);
+}
+
+/* Focus: ladrillo + halo */
+.input:focus, .select:focus, .file:focus, .textarea:focus{
+  outline:none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus);
+  background:#fff;
+  caret-color: var(--accent);
+}
+
+/* Resalta la etiqueta del campo activo */
+.form-grid > div:focus-within > label{
+  color: var(--accent);
+}
+
+/* Select: mantiene la flecha simple */
+.select{
+  appearance:none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #6b7280 50%),
+    linear-gradient(135deg, #6b7280 50%, transparent 50%);
+  background-position: calc(100% - 16px) calc(1em + 2px),
+                       calc(100% - 11px) calc(1em + 2px);
+  background-size:5px 5px, 5px 5px;
+  background-repeat:no-repeat;
+}
+
+/* File input: botón más integrado (cuando el navegador permite) */
+.file::-webkit-file-upload-button{
+  border:1px solid var(--olive-400);
+  border-radius:6px; padding:6px 10px; margin-right:10px;
+  background:#f7f4ef; cursor:pointer;
+}
+.file::-webkit-file-upload-button:hover{
+  border-color: var(--olive-600);
+}
+
+/* === (Opcional) Estados de Validación === */
+.input.is-valid, .select.is-valid { border-color:#3ba76b }
+.input.is-invalid, .select.is-invalid { border-color:#cc3a3a }
+.input.is-invalid:focus, .select.is-invalid:focus { box-shadow:0 0 0 3px rgba(204,58,58,.2) }
+
+/* Botones */
+.btn{display:inline-flex; align-items:center; gap:8px; border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer; border:1px solid transparent}
+.btn-primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent-600); border-color:var(--accent-600)}
+.btn-ghost{background:#fff; color:var(--accent); border-color:var(--accent)}
+.btn-ghost:hover{background:#fff5f0}
+.actions{display:flex; gap:12px; justify-content:flex-end; margin-top:18px}

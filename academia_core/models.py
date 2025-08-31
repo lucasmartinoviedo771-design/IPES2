@@ -1151,3 +1151,48 @@ class RequisitosIngreso(models.Model):
 
     def __str__(self):
         return f"Requisitos de {self.inscripcion_id}"
+
+class Carrera(models.Model):
+    nombre = models.CharField(max_length=150)
+    def __str__(self): return self.nombre
+
+class Materia(models.Model):
+    nombre = models.CharField(max_length=150)
+    carrera = models.ForeignKey(Carrera, on_delete=models.CASCADE, related_name="materias")
+    anio = models.PositiveSmallIntegerField(default=1)
+    def __str__(self): return f"{self.nombre} ({self.carrera})"
+
+class Mesa(models.Model):
+    materia = models.ForeignKey(Materia, on_delete=models.CASCADE, related_name="mesas")
+    fecha = models.DateField()
+    turno = models.CharField(max_length=20, blank=True)  # 1ra/2da, Mañana/Tarde, etc.
+    def __str__(self): return f"Mesa {self.materia} - {self.fecha} {self.turno}".strip()
+
+# ===== Inscripciones =====
+ESTADOS = (("pendiente","Pendiente"), ("confirmada","Confirmada"), ("baja","Baja"))
+
+class InscripcionCarrera(models.Model):
+    estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE)
+    carrera = models.ForeignKey(Carrera, on_delete=models.PROTECT)
+    cohorte = models.PositiveSmallIntegerField()
+    turno = models.CharField(max_length=20, blank=True)
+    fecha_inscripcion = models.DateField(auto_now_add=True)
+    estado = models.CharField(max_length=12, choices=ESTADOS, default="pendiente")
+    def __str__(self): return f"{self.estudiante} → {self.carrera} ({self.cohorte})"
+
+class InscripcionMateria(models.Model):
+    estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE)
+    materia = models.ForeignKey(Materia, on_delete=models.PROTECT)
+    comision = models.CharField(max_length=50, blank=True)
+    fecha_inscripcion = models.DateField(auto_now_add=True)
+    estado = models.CharField(max_length=12, choices=ESTADOS, default="pendiente")
+    def __str__(self): return f"{self.estudiante} → {self.materia}"
+
+class InscripcionMesa(models.Model):
+    estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE)
+    mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT)
+    condicion = models.CharField(max_length=20, blank=True)  # regular/libre/etc.
+    llamada = models.CharField(max_length=20, blank=True)    # 1ra/2da
+    fecha_inscripcion = models.DateField(auto_now_add=True)
+    estado = models.CharField(max_length=12, choices=ESTADOS, default="pendiente")
+    def __str__(self): return f"{self.estudiante} → {self.mesa}"
