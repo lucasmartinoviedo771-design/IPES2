@@ -15,111 +15,123 @@
       {% csrf_token %}
       {{ form.non_field_errors }}
 
-      <div class="form-grid">
-        <div>
-          <label for="{{ form.estudiante.id_for_label }}">Estudiante</label>
-          {{ form.estudiante|addclass:"select" }}
-        </div>
+      {# -------- arriba: 2 columnas -------- #}
+<div class="form-grid-2">
+  <div>
+    <label for="{{ form.estudiante.id_for_label }}">Estudiante</label>
+    {{ form.estudiante|addclass:"select" }}
+  </div>
 
-        <div>
-          <label for="{{ form.profesorado.id_for_label }}">Profesorado / Carrera</label>
-          {{ form.profesorado|addclass:"select" }}
-        </div>
+  <div>
+    <label for="{{ form.profesorado.id_for_label }}">Profesorado / Carrera</label>
+    {{ form.profesorado|addclass:"select" }}
+  </div>
 
-        <div>
-          <label for="{{ form.plan.id_for_label }}">Plan</label>
-          {{ form.plan|addclass:"select" }}
-          <div id="plan-error" class="muted hidden" style="color:#b91c1c; font-size:12px;"></div>
-        </div>
+  <div>
+    <label for="{{ form.plan.id_for_label }}">Plan</label>
+    {{ form.plan|addclass:"select" }}
+    <div id="plan-error" class="muted hidden" style="color:#b91c1c; font-size:12px;"></div>
+  </div>
 
-        <div>
-          <label for="{{ form.cohorte.id_for_label }}">Cohorte</label>
-          {{ form.cohorte|addclass:"input" }}
-        </div>
+  <div>
+    <label for="{{ form.cohorte.id_for_label }}">Cohorte</label>
+    {{ form.cohorte|addclass:"input" }}
+  </div>
+</div>
 
-        {# ------- Opcionales: solo se muestran si existen o si querés usarlos ------- #}
-        {% if form.turno %}
-        <div>
-          <label for="{{ form.turno.id_for_label }}">Turno</label>
-          {{ form.turno|addclass:"input" }}
-        </div>
-        {% endif %}
+{# -------- requisitos en 2 columnas -------- #}
+<div class="panel" style="margin-top:16px">
+  <h2>Requisitos de Ingreso</h2>
 
-        {% if form.estado %}
-        <div>
-          <label for="{{ form.estado.id_for_label }}">Estado</label>
-          {{ form.estado|addclass:"select" }}
-        </div>
-        {% endif %}
-        {# --------------------------------------------------------------------------- #}
-      </div>
+  {# fila 1: DNI | Cert. médico #}
+  <div class="checks-2">
+    <label class="checkbox">
+      {% if form.req_dni %}{{ form.req_dni }}{% else %}<input type="checkbox" id="id_req_dni" name="req_dni">{% endif %}
+      <span>DNI</span>
+    </label>
 
-      <div class="panel" style="margin-top:16px">
-        <h2>Requisitos de Ingreso</h2>
+    <label class="checkbox">
+      {% if form.req_cert_med %}{{ form.req_cert_med }}{% else %}<input type="checkbox" id="id_req_cert_med" name="req_cert_med">{% endif %}
+      <span>Cert. médico</span>
+    </label>
 
-        <div class="form-grid">
-          <div class="checkbox">
-            {{ form.req_dni }} <label for="{{ form.req_dni.id_for_label }}">{{ form.req_dni.label }}</label>
-          </div>
-          <div class="checkbox">
-            {{ form.req_cert_med }} <label for="{{ form.req_cert_med.id_for_label }}">{{ form.req_cert_med.label }}</label>
-          </div>
-          <div class="checkbox">
-            {{ form.req_fotos }} <label for="{{ form.req_fotos.id_for_label }}">{{ form.req_fotos.label }}</label>
-          </div>
-          <div class="checkbox">
-            {{ form.req_folios }} <label for="{{ form.req_folios.id_for_label }}">{{ form.req_folios.label }}</label>
-          </div>
-        </div>
+    {# fila 2: Folios | Fotos (orden como pediste) #}
+    <label class="checkbox">
+      {% if form.req_folios %}{{ form.req_folios }}{% else %}<input type="checkbox" id="id_req_folios" name="req_folios">{% endif %}
+      <span>Folios</span>
+    </label>
 
-        <div class="form-grid" style="margin-top:8px">
-          <div id="row-titulo-sec" class="checkbox">
-            {{ form.req_titulo_sec }} <label for="{{ form.req_titulo_sec.id_for_label }}">{{ form.req_titulo_sec.label }}</label>
-          </div>
-          <div id="row-titulo-tramite" class="checkbox">
-            {{ form.req_titulo_tramite }} <label for="{{ form.req_titulo_tramite.id_for_label }}">{{ form.req_titulo_tramite.label }}</label>
-          </div>
-          <div id="row-adeuda" class="checkbox">
-            {{ form.req_adeuda }} <label for="{{ form.req_adeuda.id_for_label }}">{{ form.req_adeuda.label }}</label>
-          </div>
-        </div>
+    <label class="checkbox">
+      {% if form.req_fotos %}{{ form.req_fotos }}{% else %}<input type="checkbox" id="id_req_fotos" name="req_fotos">{% endif %}
+      <span>Fotos</span>
+    </label>
 
-        <div id="adeuda-extra" class="form-grid hidden" style="margin-top:8px">
-          <div>
-            <label for="{{ form.req_adeuda_mats.id_for_label }}">{{ form.req_adeuda_mats.label }}</label>
-            {{ form.req_adeuda_mats|addclass:"input" }}
-          </div>
-          <div>
-            <label for="{{ form.req_adeuda_inst.id_for_label }}">{{ form.req_adeuda_inst.label }}</label>
-            {{ form.req_adeuda_inst|addclass:"input" }}
-          </div>
-        </div>
+    {# fila 3: Título secundario | Título en trámite #}
+    <label class="checkbox" id="row-titulo-sec">
+      {% if form.req_titulo_sec %}{{ form.req_titulo_sec }}{% else %}<input type="checkbox" id="id_req_titulo_sec" name="req_titulo_sec">{% endif %}
+      <span>Título secundario</span>
+    </label>
 
-        <div id="req-cert-docente" class="form-grid hidden" style="margin-top:12px">
-          <h3 class="muted" style="margin:0 0 6px">Documentación de Nivel Superior</h3>
-          <div class="form-grid">
-            <div class="checkbox">
-              {{ form.req_titulo_sup }} <label for="{{ form.req_titulo_sup.id_for_label }}">{{ form.req_titulo_sup.label }}</label>
-            </div>
-            <div class="checkbox">
-              {{ form.req_incumbencias }} <label for="{{ form.req_incumbencias.id_for_label }}">{{ form.req_incumbencias.label }}</label>
-            </div>
-          </div>
-        </div>
+    <label class="checkbox" id="row-titulo-tramite">
+      {% if form.req_titulo_tramite %}{{ form.req_titulo_tramite }}{% else %}<input type="checkbox" id="id_req_titulo_tramite" name="req_titulo_tramite">{% endif %}
+      <span>Título en trámite</span>
+    </label>
 
-        <div class="checkbox" style="margin-top:8px">
-          {{ form.req_condicion }} <label for="{{ form.req_condicion.id_for_label }}">{{ form.req_condicion.label }}</label>
-        </div>
-      </div>
+    {# fila 4: Adeuda materias (va sola; el detalle se abre debajo) #}
+    <label class="checkbox" id="row-adeuda">
+      {% if form.req_adeuda %}{{ form.req_adeuda }}{% else %}<input type="checkbox" id="id_req_adeuda" name="req_adeuda">{% endif %}
+      <span>Adeuda materias</span>
+    </label>
+  </div>
+
+  {# detalle "adeuda": 2 campos, ocupa toda la fila #}
+  <div id="adeuda-extra" class="form-grid-2 hidden" style="margin-top:8px">
+    <div>
+      <label for="id_req_adeuda_mats">{{ form.req_adeuda_mats.label|default:'Materias adeudadas' }}</label>
+      {% if form.req_adeuda_mats %}{{ form.req_adeuda_mats|addclass:"input" }}
+      {% else %}<input type="text" id="id_req_adeuda_mats" name="req_adeuda_mats" class="input">{% endif %}
+    </div>
+    <div>
+      <label for="id_req_adeuda_inst">{{ form.req_adeuda_inst.label|default:'Escuela / Colegio' }}</label>
+      {% if form.req_adeuda_inst %}{{ form.req_adeuda_inst|addclass:"input" }}
+      {% else %}<input type="text" id="id_req_adeuda_inst" name="req_adeuda_inst" class="input">{% endif %}
+    </div>
+  </div>
+
+  {# bloque CERT DOCENTE: se muestra SOLO si se elige ese profesorado #}
+  <div id="req-cert-docente" class="subsection hidden">
+    <h3 class="muted">Documentación de Nivel Superior</h3>
+    <div class="checks-2">
+      <label class="checkbox">
+        {% if form.req_titulo_sup %}{{ form.req_titulo_sup }}{% else %}<input type="checkbox" id="id_req_titulo_sup" name="req_titulo_sup">{% endif %}
+        <span>Título terciario / universitario</span>
+      </label>
+      <label class="checkbox">
+        {% if form.req_incumbencias %}{{ form.req_incumbencias }}{% else %}<input type="checkbox" id="id_req_incumbencias" name="req_incumbencias">{% endif %}
+        <span>Incumbencias</span>
+      </label>
+    </div>
+  </div>
+
+  {# Si queda Condicional, aparece DDJJ/Compromiso al final #}
+  <div class="row" style="margin-top:10px">
+    <label id="ddjj-wrap" class="hidden checkbox">
+      {% if form.ddjj_compromiso %}{{ form.ddjj_compromiso }}{% else %}<input type="checkbox" id="id_ddjj_compromiso" name="ddjj_compromiso">{% endif %}
+      <span>Nota / DDJJ de compromiso</span>
+    </label>
+  </div>
+</div>
 
       {# Estado administrativo (tu JS maneja estas pills) #}
-      <div class="row" style="margin-top:12px; gap:8px">
-        <span id="pill-regular" class="hidden px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-sm">Alumno Regular Administrativamente</span>
-        <span id="pill-cond" class="hidden px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-sm">Alumno Condicional</span>
-        <label id="ddjj-wrap" class="hidden checkbox" style="margin-left:auto">
-          {{ form.ddjj_compromiso }} <span>{{ form.ddjj_compromiso.label }}</span>
-        </label>
-      </div>
+      <div class="info-bar" style="margin-top:10px">
+  <span id="pill-regular" class="pill pill-ok hidden">Alumno Regular</span>
+  <span id="pill-cond" class="pill pill-warn hidden">Alumno Condicional</span>
+
+  <label id="ddjj-wrap" class="hidden checkbox" style="margin-left:auto">
+    {% if form.ddjj_compromiso %}{{ form.ddjj_compromiso }}{% else %}<input type="checkbox" id="id_ddjj_compromiso" name="ddjj_compromiso">{% endif %}
+    <span>Nota / DDJJ de compromiso</span>
+  </label>
+</div>
 
       <div class="actions">
         <button class="btn btn-primary" type="submit">Guardar Inscripción</button>

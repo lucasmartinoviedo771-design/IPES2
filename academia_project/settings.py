@@ -198,6 +198,8 @@ _static_candidates = [
 ]
 STATICFILES_DIRS = [p for p in _static_candidates if p.exists()]
 
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
