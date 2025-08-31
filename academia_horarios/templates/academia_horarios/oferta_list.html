@@ -11,9 +11,16 @@
       {% endfor %}
     </select>
   </label>
-  <label>Año
-    <input type="number" name="anio" value="{{anio_sel}}" min="1"/>
-  </label>
+  <label for="f_anio">Año</label>
+<select id="f_anio" name="anio">
+  <option value="">--</option>
+  {% for a in anios %}
+    <option value="{{ a }}"
+      {% if request.GET.anio|stringformat:"s" == a|stringformat:"s" %}selected{% endif %}>
+      {{ a }}°
+    </option>
+  {% endfor %}
+</select>
   <label>Período
     <select name="periodo">
       <option value="">--</option>

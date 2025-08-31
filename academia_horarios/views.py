@@ -3,7 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.db.models import Sum
 from django.contrib import messages
-from .models import Plan, MateriaEnPlan, Comision, Periodo, HorarioClase, hc_asignadas, hc_requeridas, TimeSlot, Docente
+from academia_core.models import PlanEstudios
+from .models import MateriaEnPlan, Comision, Periodo, HorarioClase, hc_asignadas, hc_requeridas, TimeSlot, Docente
 from .forms import HorarioInlineForm
 from datetime import time
 from django.http import JsonResponse
@@ -16,7 +17,17 @@ class OfertaView(TemplateView):
         plan_id = self.request.GET.get("plan")
         anio = self.request.GET.get("anio")
         periodo_id = self.request.GET.get("periodo")
-        ctx["planes"] = Plan.objects.all().order_by("profesorados__nombre", "nombre")
+
+        qs = MateriaEnPlan.objects.all()
+        if plan_id:
+            qs = qs.filter(plan_id=plan_id)
+
+        anios = list(
+            qs.order_by("anio").values_list("anio", flat=True).distinct()
+        ) or [1, 2, 3, 4]  # fallback si no hay datos
+
+        ctx["anios"] = anios
+        ctx["planes"] = PlanEstudios.objects.all().order_by("profesorado__nombre", "nombre")
         ctx["periodos"] = Periodo.objects.all().order_by("-ciclo_lectivo", "cuatrimestre")
         ctx["anio_sel"] = anio
         ctx["plan_sel"] = int(plan_id) if plan_id else None

@@ -8,7 +8,7 @@ from django.views.generic import (
     ListView,
     DetailView,
 )
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404, render
 from django.db.models import Q
 from django.views import View
 from django.http import HttpResponseForbidden
@@ -30,6 +30,7 @@ from .forms import (
     NuevoDocenteForm,
     CERT_DOCENTE_LABEL,
     CorrelatividadesForm,
+    OfertaFilterForm,
 )
 
 # Mixin de permisos por rol
@@ -337,3 +338,16 @@ def agregar_horario(request, pk):
         else:
             messages.error(request, e.message if hasattr(e, "message") else str(e))
     return _redir_comision(comision)
+
+def oferta_por_plan(request):
+    form = OfertaFilterForm(request.GET or None)
+
+    # Si necesitás filtrar Período según algo, podés retocar el queryset acá.
+    # Por ejemplo, siempre aseguramos que tenga periodos:
+    form.fields['periodo'].queryset = form.fields['periodo'].queryset
+
+    ctx = {
+        'form': form,
+        # ... y lo que ya usás para construir la tabla / resultados
+    }
+    return render(request, 'ui/oferta_por_plan.html', ctx)

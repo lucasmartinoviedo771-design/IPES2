@@ -49,4 +49,7 @@ urlpatterns = [
     # Rutas para comisiones
     path("comisiones/<int:pk>/asignar-docente/", views.asignar_docente, name="asignar_docente"),
     path("comisiones/<int:pk>/agregar-horario/", views.agregar_horario, name="agregar_horario"),
+
+    # Oferta
+    path("oferta", views.oferta_por_plan, name="oferta_por_plan"),
 ]

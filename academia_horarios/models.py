@@ -2,50 +2,12 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from datetime import time
 
-# ======= Fallbacks (solo si no existen ya en otras apps) =======
-try:
-    from academia_core.models import Materia as CoreMateria
-    Materia = CoreMateria
-except Exception:
-    class Materia(models.Model):
-        codigo = models.CharField(max_length=32, blank=True, default="")
-        nombre = models.CharField(max_length=255)
-        def __str__(self): return f"{self.codigo} {self.nombre}".strip()
-        class Meta:
-            db_table = "academia_horarios_materia"
-
-try:
-    from academia_docentes.models import Docente as CoreDocente
-    Docente = CoreDocente
-except Exception:
-    class Docente(models.Model):
-        dni = models.CharField(max_length=20, unique=True, null=True, blank=True)
-        apellido_nombre = models.CharField(max_length=255)
-        dedicacion = models.CharField(max_length=32, blank=True, default="")
-        email = models.EmailField(blank=True, default="")
-        def __str__(self): return self.apellido_nombre
-        class Meta:
-            db_table = "academia_horarios_docente"
-
-try:
-    from academia_planes.models import Profesorado as CoreProfesorado, Plan as CorePlan
-    Profesorado = CoreProfesorado
-    Plan = CorePlan
-except Exception:
-    class Profesorado(models.Model):
-        nombre = models.CharField(max_length=255, unique=True)
-        def __str__(self): return self.nombre
-        class Meta:
-            db_table = "academia_horarios_profesorado"
-
-    class Plan(models.Model):
-        profesorados = models.ForeignKey(Profesorado, on_delete=models.PROTECT)
-        nombre = models.CharField(max_length=255)
-        codigo = models.CharField(max_length=64, blank=True, default="")
-        def __str__(self): return f"{self.profesorados} — {self.nombre} ({self.codigo})".strip()
-        class Meta:
-            db_table = "academia_horarios_plan"
-            unique_together = ("profesorados", "codigo")
+from academia_core.models import (
+    Docente,
+    Profesorado,
+    PlanEstudios,        # tu “Plan”
+    EspacioCurricular,   # tu “Materia”
+)
 
 # ======= Catálogos/Períodos =======
 class Turno(models.TextChoices):
@@ -68,8 +30,8 @@ class TipoDictado(models.TextChoices):
     CUATRIMESTRAL = "CUATRIMESTRAL", "Cuatrimestral"
 
 class MateriaEnPlan(models.Model):
-    plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
-    materia = models.ForeignKey(Materia, on_delete=models.PROTECT)
+    plan = models.ForeignKey(PlanEstudios, on_delete=models.PROTECT)
+    materia = models.ForeignKey(EspacioCurricular, on_delete=models.PROTECT)
     anio = models.PositiveSmallIntegerField()
     tipo_dictado = models.CharField(max_length=16, choices=TipoDictado.choices)
     horas_catedra_semana_1c = models.PositiveSmallIntegerField(default=0)
@@ -104,7 +66,7 @@ class Comision(models.Model):
 
     def __str__(self):
         p = self.materia_en_plan
-        return f"{p.plan.profesorados} {p.anio}° — {p.materia} — {self.periodo} — {self.nombre} ({self.get_turno_display()})"
+        return f"{p.plan.profesorado} {p.anio}° — {p.materia} — {self.periodo} — {self.nombre} ({self.get_turno_display()})"
     class Meta:
         db_table = "academia_horarios_comision"
         unique_together = ("materia_en_plan", "periodo", "nombre")
@@ -156,7 +118,7 @@ class HorarioClase(models.Model):
                 timeslot=self.timeslot,
                 comision__periodo=c.periodo,
                 comision__materia_en_plan__anio=mep.anio,
-                comision__materia_en_plan__plan__profesorados=mep.plan.profesorados,
+                comision__materia_en_plan__plan__profesorado=mep.plan.profesorado,
             )
             .exclude(pk=self.pk)
             .exists()
@@ -226,7 +188,7 @@ def hc_requeridas(mep: MateriaEnPlan, periodo: Periodo) -> int | None:
     if tope is None and getattr(mep, "horas_catedra", None) is not None:
         tope = mep.horas_catedra
 
-    # 3) Fallback a Materia.horas_catedra
+    # 3) Fallback a EspacioCurricular.horas_catedra
     materia = getattr(mep, "materia", None)
     if tope is None and materia and getattr(materia, "horas_catedra", None) is not None:
         tope = materia.horas_catedra
