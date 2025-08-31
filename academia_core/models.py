@@ -304,7 +304,8 @@ class EstudianteProfesorado(models.Model):
 
     # --------- Cálculos cacheados ---------
     def calcular_legajo_estado(self) -> str:
-        """COMPLETO = base + (sec o ter+inc) y NO título en trámite."""
+        """
+        COMPLETO = base + (sec o ter+inc) y NO título en trámite."""
         ok = True
         for campo, requerido in self.requisitos_obligatorios():
             val = bool(getattr(self, campo))
@@ -470,10 +471,6 @@ class Correlatividad(models.Model):
         # constraints y indexes pueden ir aquí si son necesarios
 
     def __str__(self):
-        if self.requiere_espacio:
-            req = f"{self.requiere_espacio.anio} {self.requiere_espacio.get_cuatrimestre_display()} - {self.requiere_espacio.nombre}"
-        else:
-            req = f"todos hasta {self.requiere_todos_hasta_anio}°"
         return f"[{self.plan.resolucion}] {self.espacio.nombre} / {self.tipo} → {self.requisito}: {req}"
 
 
@@ -724,15 +721,6 @@ class Movimiento(models.Model):
                     )
                 if not self.ausente and self.nota_num is None:
                     raise ValidationError("Debe cargar la nota o marcar Ausente.")
-
-            if cond_codigo == "EQUIVALENCIA":
-                if (
-                    not self.disposicion_interna
-                    or self.nota_texto.lower() != "equivalencia"
-                ):
-                    raise ValidationError(
-                        "Para Equivalencia, complete la Disposición y la nota de texto debe ser 'Equivalencia'."
-                    )
 
             if cond_codigo != "EQUIVALENCIA":
                 ok, faltan = _cumple_correlativas(
@@ -1196,3 +1184,15 @@ class InscripcionMesa(models.Model):
     fecha_inscripcion = models.DateField(auto_now_add=True)
     estado = models.CharField(max_length=12, choices=ESTADOS, default="pendiente")
     def __str__(self): return f"{self.estudiante} → {self.mesa}"
+
+class Aula(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    capacidad = models.PositiveIntegerField(null=True, blank=True)
+    observaciones = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        verbose_name = "Aula"
+        verbose_name_plural = "Aulas"

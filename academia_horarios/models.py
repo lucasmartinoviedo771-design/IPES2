@@ -7,6 +7,8 @@ from academia_core.models import (
     Profesorado,
     PlanEstudios,        # tu “Plan”
     EspacioCurricular,   # tu “Materia”
+    Carrera, # Added Carrera for Horario model
+    Aula, # Added Aula for Horario model
 )
 
 # ======= Catálogos/Períodos =======
@@ -51,6 +53,8 @@ class Comision(models.Model):
     turno = models.CharField(max_length=16, choices=Turno.choices)
     nombre = models.CharField(max_length=16, default="Única")
     cupo = models.PositiveSmallIntegerField(default=0)
+    # NUEVO:
+    seccion = models.CharField(max_length=2, default='A')   # A, B, C...
 
     def horas_catedra_tope(self):
         return hc_requeridas(self.materia_en_plan, self.periodo)
@@ -69,7 +73,8 @@ class Comision(models.Model):
         return f"{p.plan.profesorado} {p.anio}° — {p.materia} — {self.periodo} — {self.nombre} ({self.get_turno_display()})"
     class Meta:
         db_table = "academia_horarios_comision"
-        unique_together = ("materia_en_plan", "periodo", "nombre")
+        # unique_together = ("materia_en_plan", "periodo", "nombre") # OLD
+        unique_together = ("materia_en_plan", "periodo", "seccion") # NEW
 
 class TimeSlot(models.Model):
     dia_semana = models.PositiveSmallIntegerField()
@@ -95,6 +100,63 @@ class TimeSlot(models.Model):
         db_table = "academia_horarios_timeslot"
         indexes = [models.Index(fields=["dia_semana", "inicio", "fin"])]
         constraints = [models.CheckConstraint(check=models.Q(inicio__lt=models.F("fin")), name="timeslot_inicio_lt_fin")]
+
+# Helper function for overlaps
+def overlaps(a1, a2, b1, b2):
+    # “se pisan” si una empieza antes de que termine la otra y viceversa
+    return a1 < b2 and b1 < a2
+
+class Horario(models.Model):
+    # This is the new Horario model based on the user's pseudo-code
+    # It assumes a ForeignKey to Docente, not ManyToManyField
+    carrera = models.ForeignKey(Carrera, on_delete=models.PROTECT)
+    plan = models.ForeignKey(PlanEstudios, on_delete=models.PROTECT)
+    materia = models.ForeignKey(EspacioCurricular, on_delete=models.PROTECT)
+    turno = models.CharField(max_length=16, choices=Turno.choices)
+    # NUEVO:
+    seccion = models.CharField(max_length=2, default='A')   # para distinguir 1ºA, 1ºB en el horario
+    docente = models.ForeignKey(Docente, on_delete=models.SET_NULL, null=True, blank=True)
+    aula = models.ForeignKey(Aula, on_delete=models.SET_NULL, null=True, blank=True)
+    dia = models.PositiveSmallIntegerField(choices=TimeSlot.DIA_CHOICES)
+    hora_inicio = models.TimeField()
+    hora_fin = models.TimeField()
+    observaciones = models.TextField(blank=True, default="")
+    activo = models.BooleanField(default=True)
+
+    def clean(self):
+        super().clean()
+        errors = {}
+
+        # 1) inicio < fin
+        if self.hora_fin <= self.hora_inicio:
+            errors['hora_fin'] = 'La hora fin debe ser posterior a la hora inicio.'
+
+        # 2) choques del DOCENTE (si está designado)
+        if self.docente:
+            qs = Horario.objects.filter(docente=self.docente, dia=self.dia)
+            if self.pk: qs = qs.exclude(pk=self.pk)
+            for h in qs:
+                if overlaps(self.hora_inicio, self.hora_fin, h.hora_inicio, h.hora_fin):
+                    errors['docente'] = f'El docente {self.docente.nombre} ya tiene un horario en esa franja.'
+                    break
+
+        # 3) choques del AULA (si se indicó)
+        if self.aula:
+            qs = Horario.objects.filter(aula=self.aula, dia=self.dia)
+            if self.pk: qs = qs.exclude(pk=self.pk)
+            for h in qs:
+                if overlaps(self.hora_inicio, self.hora_fin, h.hora_inicio, h.hora_fin):
+                    errors['aula'] = 'El aula ya está ocupada en esa franja.'
+                    break
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self): return f"{self.materia} - {self.dia} {self.hora_inicio}-{self.hora_fin}"
+
+    class Meta:
+        db_table = "academia_horarios_horario"
+
 
 class HorarioClase(models.Model):
     comision = models.ForeignKey(Comision, on_delete=models.CASCADE, related_name="horarios")

@@ -71,22 +71,26 @@
         </select>
       </div>
 
+      {# NEW SECTION SELECT #}
+      <div>
+        <label for="id_seccion">Comisión / Sección</label>
+        <select id="id_seccion" name="seccion" class="select">
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+        </select>
+      </div>
+      {# END NEW SECTION SELECT #}
+
       <div class="grid-span-2">
-        <div class="row" style="justify-content:space-between; align-items:center">
-          <h2 style="margin:0">Seleccionar franjas horarias</h2>
-          <div class="muted">
-            Horas presenciales seleccionadas:
-            <strong id="horas-sel">0</strong>/<span id="horas-max">0</span>
-          </div>
+        <h2 style="margin:0">Seleccionar franjas horarias</h2>
+        <div id="horas-head" class="muted" style="margin:8px 0 6px">
+          Horas presenciales seleccionadas:
+          <strong><span id="horas-sel">0</span>/<span id="horas-req">0</span></strong>
         </div>
-
-        <div id="slot-legend" class="muted" style="margin:6px 0 8px">
-          Toque los cuadros para agregar/quitar. Los de color claro son recreos.
-        </div>
-
-        <div id="slot-grid" class="table-wrap"></div>
-        <input type="hidden" name="slots" id="id_slots" value="">
-        <div id="slot-errors" class="help-error" style="display:none"></div>
+        <div id="grid-horarios" class="slots-grid"></div>
+        <input type="hidden" name="franjas_json" id="id_franjas_json">
       </div>
 
       <div class="grid-span-2">
@@ -97,292 +101,160 @@
 
     <div class="actions">
       <button class="btn btn-primary" type="submit">Guardar</button>
-      <a class="btn btn-ghost" href="{% url 'academia_horarios:oferta_list' %}">Cancelar</a>
+      <a class="btn btn-ghost" href="{% url 'academia_horarios:panel_oferta' %}">Cancelar</a>
     </div>
   </form>
 </div>
+{% endblock %}
 
-<script>
-/*** === CONFIG DE SLOTS POR TURNO (incluye recreos) ===
- *  Si ya tenías esto en JS/HTML, copiá acá los mismos horarios o
- *  movelos a un endpoint para centralizarlos.
- */
-const SLOTS = {
-  'M': [
-    {ini:'07:45',fin:'08:30'},{ini:'08:30',fin:'09:15'},{break:true,ini:'09:15',fin:'09:30'},
-    {ini:'09:30',fin:'10:15'},{ini:'10:15',fin:'11:00'},{break:true,ini:'11:00',fin:'11:10'},
-    {ini:'11:10',fin:'11:55'},{ini:'11:55',fin:'12:40'}
-  ],
-  'T': [
-    {ini:'13:30',fin:'14:15'},{ini:'14:15',fin:'15:00'},{break:true,ini:'15:00',fin:'15:15'},
-    {ini:'15:15',fin:'16:00'},{ini:'16:00',fin:'16:45'},{break:true,ini:'16:45',fin:'16:55'},
-    {ini:'16:55',fin:'17:40'},{ini:'17:40',fin:'18:25'}
-  ],
-  'N': [
-    {ini:'18:30',fin:'19:15'},{ini:'19:15',fin:'20:00'},{break:true,ini:'20:00',fin:'20:15'},
-    {ini:'20:15',fin:'21:00'},{ini:'21:00',fin:'21:45'}
-  ]
-};
-
-// Días: L..S (0=Lunes)
-const DIAS = [
-  {k:0, t:'Lun'}, {k:1, t:'Mar'}, {k:2, t:'Mié'}, {k:3, t:'Jue'}, {k:4, t:'Vie'}, {k:5, t:'Sáb'}
-];
-
-(function(){
-  const form = document.getElementById('frm-horario');
-  if(!form) return;
-
-  const selCarrera = document.getElementById('id_carrera');
-  const selPlan    = document.getElementById('id_plan');
-  const selMateria = document.getElementById('id_materia');
-  const selTurno   = document.getElementById('id_turno');
-  const selDocente = document.getElementById('id_docente');
-  const selAula    = document.getElementById('id_aula');
-
-  const horasMaxEl = document.getElementById('horas-max');
-  const horasSelEl = document.getElementById('horas-sel');
-  const slotsHidden= document.getElementById('id_slots');
-  const slotGrid   = document.getElementById('slot-grid');
-  const slotErr    = document.getElementById('slot-errors');
-  const materiaMeta= document.getElementById('materia-meta');
-
-  let materiaInfo = { horas_presenciales:0, horas_rotativas:0, es_practica:false };
-  let ocupados = []; // [{dia:0, ini:'07:45', fin:'08:30', tipo:'docente|aula'}]
-
-  function setErr(msg){
-    slotErr.style.display = msg ? 'block' : 'none';
-    slotErr.textContent   = msg || '';
-  }
-
-  function jsonGet(url, params){
-    const q = new URLSearchParams(params||{}).toString();
-    return fetch(q? `${url}?${q}` : url, {headers:{'X-Requested-With':'XMLHttpRequest'}})
-      .then(r=>r.ok?r.json():Promise.reject(r.statusText));
-  }
-
-  // 1) cascada: carrera -> planes
-  selCarrera.addEventListener('change', () => {
-    resetBelow('carrera');
-    const id = selCarrera.value;
-    if(!id) return;
-    jsonGet(form.dataset.planesUrl, {carrera:id}).then(data=>{
-      fillSelect(selPlan, data.results, true);
-      selPlan.disabled = false;
-    });
-  });
-
-  // 2) cascada: plan -> materias (también horas semanales / práctica)
-  selPlan.addEventListener('change', () => {
-    resetBelow('plan');
-    const id = selPlan.value;
-    if(!id) return;
-    jsonGet(form.dataset.materiasUrl, {plan:id}).then(data=>{
-      fillSelect(selMateria, data.results, true);
-      selMateria.disabled = false;
-    });
-  });
-
-  // 3) materia -> meta + turno habilitado + docentes
-  selMateria.addEventListener('change', () => {
-    resetBelow('materia');
-    const opt = selMateria.selectedOptions[0];
-    if(!opt) return;
-
-    // la API de materias puede devolver meta por id; acá meta via data-attrs opcional
-    materiaInfo = {
-      horas_presenciales: Number(opt.dataset.horas || 0),
-      horas_rotativas: Number(opt.dataset.rot || 0),
-      es_practica: opt.dataset.prac === '1'
-    };
-    horasMaxEl.textContent = materiaInfo.horas_presenciales || 0;
-    horasSelEl.textContent = '0';
-    materiaMeta.textContent = metaText(materiaInfo);
-
-    selTurno.disabled = false;
-
-    // docentes
-    jsonGet(form.dataset.docentesUrl, {carrera: selCarrera.value, materia: selMateria.value})
-      .then(data=>{
-        fillSelect(selDocente, [{id:'', nombre:'Sin designar'}, ...data.results], false);
-        selDocente.disabled = false;
-      });
-  });
-
-  function metaText(meta){
-    if (!meta.horas_presenciales) return '';
-    if (meta.es_practica){
-      return `Presenciales: ${meta.horas_presenciales} hs · Rotativas: ${meta.horas_rotativas || 0} hs`;
-    }
-    return `Presenciales semanales: ${meta.horas_presenciales} hs`;
-  }
-
-  // 4) turno -> dibujar grilla + cargar ocupados
-  selTurno.addEventListener('change', buildGrid);
-
-  // 5) docente/aula cambian -> recargar ocupados para bloquear celdas
-  [selDocente, selAula].forEach(el=>{
-    el.addEventListener('change', markOcupados);
-  });
-
-  function fillSelect(sel, items, addEmpty){
-    sel.innerHTML = '';
-    if(addEmpty) sel.append(new Option('---------', ''));
-    for (const it of items){
-      sel.append(new Option(it.nombre || it.text || it.label, it.id));
-    }
-  }
-
-  function resetBelow(level){
-    if(level==='carrera'){
-      selPlan.innerHTML    = '<option value="">---------'</option>';
-      selPlan.disabled     = true;
-    }
-    if(level==='carrera' || level==='plan'){
-      selMateria.innerHTML = '<option value="">---------'</option>';
-      selMateria.disabled  = true;
-      materiaMeta.textContent='';
-      materiaInfo = {horas_presenciales:0, horas_rotativas:0, es_practica:false};
-      horasMaxEl.textContent='0'; horasSelEl.textContent='0';
-    }
-    if(level!=='turno'){
-      selTurno.value='';
-      selTurno.disabled = true;
-    }
-    selDocente.innerHTML = '<option value="">Sin designar</option>';
-    selDocente.disabled = true;
-    clearGrid();
-  }
-
-  function clearGrid(){
-    slotGrid.innerHTML = '';
-    slotsHidden.value = '';
-    setErr('');
-  }
-
-  function buildGrid(){
-    clearGrid();
-    const t = selTurno.value;
-    if(!t) return;
-
-    const rows = SLOTS[t] || [];
-    if(!rows.length) return;
-
-    // tabla
-    const tbl = document.createElement('table');
-    tbl.className = 'table';
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-    trh.append(th('Hora'));
-    DIAS.forEach(d => trh.append(th(d.t)));
-    thead.append(trh); tbl.append(thead);
-
-    const tbody = document.createElement('tbody');
-    rows.forEach((slot, idx) => {
-      const tr = document.createElement('tr');
-      tr.append(td(`${slot.ini}–${slot.fin}${slot.break?' · recreo':''}`));
-      DIAS.forEach(d => {
-        const celda = document.createElement('td');
-        celda.dataset.dia = d.k;
-        celda.dataset.ini = slot.ini;
-        celda.dataset.fin = slot.fin;
-        if(slot.break){ celda.style.opacity=.45; celda.style.pointerEvents='none'; }
-        else {
-          celda.addEventListener('click', () => toggleCell(celda));
-          celda.style.cursor='pointer';
-        }
-        tr.append(celda);
-      });
-      tbody.append(tr);
-    });
-    tbl.append(tbody);
-    slotGrid.append(tbl);
-
-    // traer ocupados y marcarlos
-    markOcupados();
-  }
-
-  function th(t){ const e=document.createElement('th'); e.textContent=t; return e; }
-  function td(t){ const e=document.createElement('td'); e.textContent=t; return e; }
-
-  function toggleCell(td){
-    const sel = td.classList.toggle('bg-select'); // usa tu color por CSS si querés
-    // serializamos a hidden
-    const list = getSelected();
-    slotsHidden.value = JSON.stringify(list);
-    horasSelEl.textContent = list.length;
-
-    const max = Number(horasMaxEl.textContent||0);
-    if (max && list.length > max){
-      setErr(`Supera el máximo de ${max} horas presenciales por semana para la materia.`);
-    } else {
-      setErr('');
-    }
-  }
-
-  function getSelected(){
-    const out=[];
-    slotGrid.querySelectorAll('td.bg-select').forEach(td=>{
-      out.push({
-        dia: Number(td.dataset.dia),
-        ini: td.dataset.ini,
-        fin: td.dataset.fin
-      });
-    });
-    return out;
-  }
-
-  function markOcupados(){
-    const carrera = selCarrera.value;
-    const plan    = selPlan.value;
-    const materia = selMateria.value;
-    const turno   = selTurno.value;
-    const docente = selDocente.value || ''; // vacío = sin designar
-    const aula    = selAula.value || '';
-
-    if(!turno) return;
-
-    jsonGet(form.dataset.ocupadosUrl, {carrera, plan, materia, turno, docente, aula})
-      .then(data=>{
-        ocupados = data.ocupados || [];
-        // deshabilitar celdas que choquen
-        slotGrid.querySelectorAll('tbody td').forEach(td=>{
-          if(!td.dataset.ini) return;
-          const dia = Number(td.dataset.dia);
-          const ini = td.dataset.ini;
-          const fin = td.dataset.fin;
-
-          const busy = ocupados.some(x => String(x.dia)===String(dia) && x.ini===ini && x.fin===fin);
-          td.style.background = busy ? '#f7e4e1' : ''; // rojo suave
-          td.style.pointerEvents = busy ? 'none' : 'auto';
-          if(busy) td.classList.remove('bg-select');
-        });
-        // actualizar hidden/contador
-        const list = getSelected();
-        slotsHidden.value = JSON.stringify(list);
-        horasSelEl.textContent = list.length;
-      });
-  }
-
-  // Submit: reglas básicas
-  form.addEventListener('submit', (e)=>{
-    const max = Number(horasMaxEl.textContent||0);
-    const list = getSelected();
-    if(!selCarrera.value || !selPlan.value || !selMateria.value || !selTurno.value){
-      e.preventDefault(); setErr('Completá Carrera, Plan, Materia y Turno.'); return;
-    }
-    if(max && list.length > max){
-      e.preventDefault(); setErr(`Supera el máximo de ${max} horas presenciales.`); return;
-    }
-    if(!list.length){
-      e.preventDefault(); setErr('Seleccioná al menos una franja horaria.'); return;
-    }
-  });
-
-})();
-</script>
+<!-- Debugging Toast -->
 <style>
-/* selección visual de celdas */
-#slot-grid td.bg-select{ box-shadow: inset 0 0 0 2px var(--accent); background:#fffaf5; }
+  .debug-toast{ position:fixed; right:16px; bottom:16px; z-index:99999; background:#fff; border:1px solid #d97706; color:#7c2d12; box-shadow:0 4px 16px rgba(0,0,0,.12); border-radius:10px; padding:12px 14px; max-width:520px; font-size:13px; line-height:1.35; }
+  .debug-toast h4{ margin:0 0 6px; font-size:13px; font-weight:700; color:#9a3412;}
+  .debug-toast code{display:block; white-space:pre-wrap; background:#fff7ed; border:1px solid #fed7aa; padding:6px 8px; border-radius:6px; color:#7c2d12;}
 </style>
+<div id="debug-toast" class="debug-toast" style="display:none" onclick="this.style.display='none'"></div>
+
+{% block extra_js %}
+<script>
+/* Endpoints: injectados por Django */
+const API_PLANES   = "{% url 'ui:api_planes' %}";
+const API_MATERIAS = "{% url 'ui:api_materias' %}";
+const API_DOCENTES = "{% url 'ui:api_docentes' %}";
+
+const absURL = (path) => new URL(path, window.location.origin);
+
+// Selects
+const selCarrera   = document.getElementById('id_carrera');     // Profes./Carrera
+const selPlan      = document.getElementById('id_plan');        // Plan
+const selMateria   = document.getElementById('id_materia');     // Materia
+const selTurno     = document.getElementById('id_turno');       // Turno
+const selDocente   = document.getElementById('id_docente');     // Docente
+
+/* Utilidad: opciones + estado */
+function setOptions(select, items, getValue, getLabel) {
+  select.innerHTML = '';
+  const ph = document.createElement('option');
+  ph.value = '';
+  ph.textContent = '--------';
+  select.appendChild(ph);
+  for (const it of items) {
+    const op = document.createElement('option');
+    op.value = String(getValue(it));
+    op.textContent = getLabel(it);
+    select.appendChild(op);
+  }
+}
+
+function setLoading(select, text='Cargando…') {
+  select.innerHTML = '';
+  const op = document.createElement('option');
+  op.value = '';
+  op.textContent = text;
+  select.appendChild(op);
+}
+
+/* Banner de error visible */
+function flashError(msg) {
+  let bar = document.getElementById('ui-flash-error');
+  if (!bar) {
+    bar = Object.assign(document.createElement('div'), { id:'ui-flash-error' });
+    bar.style.cssText =
+      'position:fixed;top:10px;left:50%;transform:translateX(-50%);'+
+      'background:#b45309;color:#fff;padding:8px 12px;border-radius:8px;'+
+      'box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:9999;font:14px/1.2 system-ui';
+    document.body.appendChild(bar);
+  }
+  bar.textContent = msg;
+  bar.style.display = 'block';
+  setTimeout(()=> bar.style.display='none', 4000);
+}
+
+/* fetch con logs */
+async function fetchJSONDebug(url, opts={}) {
+  console.log('[fetch]', url.toString());
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    let txt = '';
+    try { txt = await res.text(); } catch {}
+    console.error('[fetch error]', res.status, txt);
+    throw new Error(`${res.status} ${txt || res.statusText}`);
+  }
+  return res.json();
+}
+
+/* Extraer plan_id de forma robusta */
+function getPlanId() {
+  // 1) value (lo normal si setOptions puso id)
+  if (selPlan && selPlan.value && selPlan.value !== '--------') return selPlan.value;
+
+  // 2) data-id en la opción seleccionada
+  const opt = selPlan?.selectedOptions?.[0];
+  if (opt?.dataset?.id) return opt.dataset.id;
+
+  // 3) si el texto del option es un número, úsalo
+  const txt = opt?.textContent?.trim();
+  if (txt && /^\d+$/.test(txt)) return txt;
+
+  return '';
+}
+
+/* Cargar materias del plan seleccionado */
+async function updateMaterias() {
+  const carreraId = selCarrera?.value;
+  const planId = getPlanId();
+
+  console.log('[updateMaterias] carreraId=', carreraId, 'planId=', planId);
+  if (!carreraId) { console.log('[updateMaterias] no carreraId'); setOptions(selMateria, [], x=>x.id, x=>x.nombre); return; }
+  if (!planId)     { console.log('[updateMaterias] no planId');   setOptions(selMateria, [], x=>x.id, x=>x.nombre); return; }
+
+  setLoading(selMateria);
+
+  try {
+    const u = new URL(API_MATERIAS, location.origin);
+    u.searchParams.set('carrera', carreraId);
+    u.searchParams.set('plan_id', planId);        // <- clave correcta
+
+    const data = await fetchJSONDebug(u);
+    console.log('[updateMaterias] materias:', data);
+
+    setOptions(selMateria, data.results, it => it.id, it => it.nombre || it.codigo || `#${it.id}`);
+    selMateria.disabled = false;
+  } catch (e) {
+    flashError('No pude cargar materias: ' + e.message);
+    console.error(e);
+    setOptions(selMateria, [], x=>x.id, x=>x.nombre);
+    selMateria.disabled = false;
+  }
+}
+
+/* Enlace de eventos */
+selCarrera?.addEventListener('change', async () => {
+  // cargar planes y luego materias
+  try {
+    setLoading(selPlan, 'Cargando planes…');
+    const uPlanes = absURL(API_PLANES);
+    uPlanes.searchParams.set('carrera', selCarrera.value);
+    const data = await fetchJSONDebug(uPlanes);
+    console.log('[updatePlanes] planes:', data.results);
+    setOptions(selPlan, data.results, it => it.id, it => it.codigo || it.nombre || `#${it.id}`);
+    selPlan.disabled = false;
+  } catch (e) {
+    flashError('No pude cargar planes: ' + e.message);
+    console.error(e);
+    setOptions(selPlan, [], it=>it.id, it=>it.nombre);
+  }
+  await updateMaterias();
+});
+
+selPlan?.addEventListener('change', updateMaterias);
+
+/* Arranque: si ya hay carrera/plan seleccionados, dispara materias */
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('[init] carrera=', selCarrera?.value, 'plan(value)=', selPlan?.value);
+  if (selCarrera?.value) {
+      selCarrera.dispatchEvent(new Event('change'));
+  }
+});
+</script>
 {% endblock %}

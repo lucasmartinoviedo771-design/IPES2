@@ -3,12 +3,16 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.db.models import Sum
 from django.contrib import messages
-from academia_core.models import PlanEstudios
-from .models import MateriaEnPlan, Comision, Periodo, HorarioClase, hc_asignadas, hc_requeridas, TimeSlot, Docente
+from academia_core.models import PlanEstudios, Carrera, Aula, EspacioCurricular, Docente, Materia # Added Carrera, Aula, EspacioCurricular, Docente, Materia
+from .models import MateriaEnPlan, Comision, Periodo, HorarioClase, hc_asignadas, hc_requeridas, TimeSlot, Horario # Added Horario
 from .forms import HorarioInlineForm
 from datetime import time
 from django.http import JsonResponse
+import json # Added json
+from django.db import transaction # Added transaction
+from django.views.decorators.http import require_GET # Already there
 
+# Existing classes and functions (OfertaView, comision_detail, HorarioDeleteView)
 class OfertaView(TemplateView):
     template_name = "academia_horarios/oferta_list.html"
 
@@ -127,12 +131,107 @@ class HorarioDeleteView(DeleteView):
         # 2) sino, volvemos al detalle de la comisión
         return reverse("panel_comision", args=[self.object.comision_id])
 
+# New cargar_horario view
+from academia_core.models import Profesorado, Aula
 
-from django.views.decorators.http import require_GET
+@transaction.atomic
+def cargar_horario(request):
+    if request.method == 'POST':
+        carrera_id  = request.POST.get('carrera')
+        plan_id     = request.POST.get('plan')
+        materia_id  = request.POST.get('materia')
+        turno       = request.POST.get('turno')
+        seccion     = request.POST.get('seccion', 'A') # Retrieve seccion, default to 'A'
+        docente_id  = request.POST.get('docente') or None
+        aula_id     = request.POST.get('aula') or None
+        obs         = request.POST.get('observaciones','')
+        slots       = json.loads(request.POST.get('slots','[]'))
 
+        # Validaciones de negocio (horas máximas, choques, etc) también en el Form/Model.clean()
+        for s in slots:
+            Horario.objects.create(
+                carrera_id=carrera_id, plan_id=plan_id, materia_id=materia_id,
+                turno=turno, seccion=seccion, # Added seccion
+                docente_id=docente_id, aula_id=aula_id,
+                dia=s['dia'], hora_inicio=s['ini'], hora_fin=s['fin'],
+                observaciones=obs, activo=True
+            )
 
-# --- API --- 
+        messages.success(request, f'Se cargaron {len(slots)} franjas para la materia.')
+        return redirect('academia_horarios:panel_oferta')
 
+    # GET: contexto para combos iniciales
+    carreras = Profesorado.objects.all().order_by('nombre')
+    aulas = Aula.objects.all().order_by('nombre')
+    return render(request, 'academia_horarios/cargar_horario.html', {
+        'carreras': carreras,
+        'aulas': aulas,
+    })
+
+# New abrir_paralela view
+@transaction.atomic
+def abrir_paralela(request, plan_id, periodo_id):
+    # origen: sección A
+    origen = Comision.objects.filter(
+        materia_en_plan__plan_id=plan_id,
+        periodo_id=periodo_id,
+        seccion='A'
+    ).select_related('materia_en_plan')
+
+    if request.method == 'POST':
+        seccion_to = request.POST.get('seccion', 'B')
+        copiar_horarios = request.POST.get('copiar_horarios') == '1'
+        mantener_docentes = request.POST.get('mantener_docentes') == '1'
+
+        # 1) duplicar estructura comisiones
+        for c in origen:
+            Comision.objects.get_or_create(
+                materia_en_plan=c.materia_en_plan,
+                periodo=c.periodo,
+                seccion=seccion_to
+            )
+
+        # 2) duplicar horarios (si se pidió)
+        if copiar_horarios:
+            # tomamos horarios de 'A' que referencien esas materias/plan/periodo
+            # (ajustá filtros según tu Horario)
+            a_horarios = Horario.objects.filter(
+                plan_id=plan_id,
+                # si tenés un "anio" derivado del Periodo, filtralo aquí
+                seccion='A'  # si aún no agregaste seccion en Horario, omití y seteala al crear
+            )
+            for h in a_horarios:
+                nuevo = Horario(
+                    carrera=h.carrera,
+                    plan=h.plan,
+                    materia=h.materia,
+                    docente=h.docente if mantener_docentes else None,
+                    aula=h.aula,
+                    dia=h.dia,
+                    hora_inicio=h.hora_inicio,
+                    hora_fin=h.hora_fin,
+                    turno=h.turno,
+                    observaciones=h.observaciones,
+                    seccion=seccion_to
+                )
+                try:
+                    nuevo.full_clean()
+                except ValidationError:
+                    # choque (docente/aula): si se pidió mantener, reintento sin docente
+                    if mantener_docentes and h.docente_id:
+                        nuevo.docente = None
+                        nuevo.full_clean()  # si vuelve a fallar, dejará la excepción
+                nuevo.save()
+
+        messages.success(request, f'Comisión {seccion_to} creada y duplicada.')
+        return redirect('academia_horarios:cargar_horario')  # o a donde prefieras
+
+    return render(request, 'academia_horarios/abrir_paralela.html', {
+        'plan_id': plan_id,
+        'periodo_id': periodo_id,
+    })
+
+# Existing API and helper functions
 TURNOS = {
     "m":   (time(7,45),  time(12,45)),
     "t":     (time(13,0),  time(18,0)),
@@ -162,12 +261,12 @@ def _norm_turno(s):
 def timeslots_api(request):
     dia = _norm_dia(request.GET.get("dia"))
     turno = _norm_turno(request.GET.get("turno"))
-    
+
     qs = TimeSlot.objects.all()
 
     if dia:
         qs = qs.filter(dia_semana=dia)
-    
+
     rango = TURNOS.get(turno)
     if rango:
         desde, hasta = rango
