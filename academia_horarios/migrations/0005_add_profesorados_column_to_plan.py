@@ -1,59 +1,48 @@
-from django.db import migrations, connection
+# academia_horarios/migrations/0005_add_profesorados_column_to_plan.py
+from django.db import migrations
+
+TABLE = "academia_horarios_plan"
+COLUMN = "profesorados"
+
+# Ajustá el tipo si en MySQL usabas otro (ej.: TEXT, LONGTEXT, JSON, etc.)
+MYSQL_ALTER_ADD = f"ALTER TABLE {TABLE} ADD COLUMN {COLUMN} LONGTEXT NULL;"
+MYSQL_ALTER_DROP = f"ALTER TABLE {TABLE} DROP COLUMN {COLUMN};"
 
 def add_profesorados_column(apps, schema_editor):
-    with connection.cursor() as cursor:
-        # 1) Agregar columna profesorados_id si falta
-        cursor.execute("""
-            SELECT COUNT(*)
+    vendor = schema_editor.connection.vendor
+    if vendor != "mysql":
+        # En SQLite (y otros) no hacemos nada: la tabla no existe en CI.
+        return
+
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT 1
             FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'academia_horarios_plan'
-              AND COLUMN_NAME = 'profesorados_id'
-        """)
-        (exists_col,) = cursor.fetchone()
-        if not exists_col:
-            cursor.execute("""
-                ALTER TABLE `academia_horarios_plan`
-                ADD COLUMN `profesorados_id` INT NULL AFTER `id`;
-            """)
+              AND TABLE_NAME = %s
+              AND COLUMN_NAME = %s
+            """,
+            [TABLE, COLUMN],
+        )
+        exists = cursor.fetchone() is not None
 
-        # 2) Crear tabla academia_horarios_profesorado si no existe (opcional pero útil)
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM information_schema.TABLES
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'academia_horarios_profesorado'
-        """)
-        (exists_table,) = cursor.fetchone()
-        if not exists_table:
-            cursor.execute("""
-                CREATE TABLE `academia_horarios_profesorado` (
-                  `id` INT NOT NULL AUTO_INCREMENT,
-                  `nombre` VARCHAR(255) NOT NULL,
-                  PRIMARY KEY (`id`),
-                  UNIQUE KEY `profesorado_nombre_uniq` (`nombre`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            """)
+    if not exists:
+        schema_editor.execute(MYSQL_ALTER_ADD)
 
-        # 3) Crear índice si falta
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM information_schema.STATISTICS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'academia_horarios_plan'
-              AND INDEX_NAME = 'plan_profesorados_id_idx'
-        """)
-        (exists_idx,) = cursor.fetchone()
-        if not exists_idx:
-            cursor.execute("""
-                CREATE INDEX `plan_profesorados_id_idx`
-                ON `academia_horarios_plan` (`profesorados_id`);
-            """)
+def remove_profesorados_column(apps, schema_editor):
+    vendor = schema_editor.connection.vendor
+    if vendor != "mysql":
+        return
+    # Si no existe, MySQL tiraría error; podés envolver con try si querés.
+    schema_editor.execute(MYSQL_ALTER_DROP)
 
 class Migration(migrations.Migration):
     dependencies = [
+        # ⚠️ Usa aquí el nombre EXACTO (sin .py) de tu 0004 (la que crea la tabla).
         ("academia_horarios", "0004_create_plan_table"),
     ]
+
     operations = [
-        migrations.RunPython(add_profesorados_column, migrations.RunPython.noop),
+        migrations.RunPython(add_profesorados_column, remove_profesorados_column),
     ]
