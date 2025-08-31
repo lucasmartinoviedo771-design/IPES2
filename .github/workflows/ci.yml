@@ -13,10 +13,12 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
 
+    # Variables de entorno para el job. TIME_ZONE se aplicará a todos los pasos.
     env:
       DJANGO_SETTINGS_MODULE: academia_project.settings
       USE_SQLITE_FOR_TESTS: "1"
       DJANGO_DEBUG: "1"
+      TIME_ZONE: "UTC"  # <- Cambio aplicado aquí
 
     steps:
       - name: Checkout (Revisar código) 🛎️
