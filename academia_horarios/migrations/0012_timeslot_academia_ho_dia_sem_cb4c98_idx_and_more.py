@@ -4,7 +4,7 @@ from django.db.models import Q, F
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("academia_horarios", "0011_NOMBRE_REAL_DE_TU_MIGRACION"),  # ← reemplazar por el tuyo
+        ("academia_horarios", "0011_docente_dni"),  # ← reemplazar por el tuyo
     ]
 
     operations = [
