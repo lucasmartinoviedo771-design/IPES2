@@ -1,70 +1,60 @@
-from django.db import migrations, connection
+# academia_horarios/migrations/0006_add_columns_to_comision.py
+from django.db import migrations
+
+TABLE = "academia_horarios_comision"
+
+# ⚠️ COMPLETÁ ESTA LISTA con las columnas que agrega esta migración.
+# Formato: (nombre_columna, definición_SQL_MySQL)
+# Ejemplos:
+#   ("turno", "VARCHAR(10) NULL"),
+#   ("aula", "VARCHAR(100) NULL"),
+#   ("capacidad", "INT NULL"),
+COLUMNS_TO_ADD_MYSQL = [
+    # ("columna", "TIPO NULL"),
+]
 
 def add_missing_columns(apps, schema_editor):
-    with connection.cursor() as cursor:
-        # A) Agregar columna materia_en_plan_id si falta
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'academia_horarios_comision'
-              AND COLUMN_NAME = 'materia_en_plan_id'
-        """)
-        (exists_mep_col,) = cursor.fetchone()
-        if not exists_mep_col:
-            cursor.execute("""
-                ALTER TABLE `academia_horarios_comision`
-                ADD COLUMN `materia_en_plan_id` INT NULL AFTER `id`;
-            """)
+    vendor = schema_editor.connection.vendor
+    if vendor != "mysql":
+        # En SQLite/otros motores: no-op (evitamos usar information_schema.*)
+        return
 
-        # B) Agregar columna periodo_id si falta (por las dudas)
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'academia_horarios_comision'
-              AND COLUMN_NAME = 'periodo_id'
-        """)
-        (exists_per_col,) = cursor.fetchone()
-        if not exists_per_col:
-            cursor.execute("""
-                ALTER TABLE `academia_horarios_comision`
-                ADD COLUMN `periodo_id` INT NULL AFTER `materia_en_plan_id`;
-            """)
+    with schema_editor.connection.cursor() as cursor:
+        for col_name, col_def in COLUMNS_TO_ADD_MYSQL:
+            # ¿Existe ya la columna?
+            cursor.execute(
+                """
+                SELECT 1
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = %s
+                  AND COLUMN_NAME = %s
+                """,
+                [TABLE, col_name],
+            )
+            exists = cursor.fetchone() is not None
+            if not exists:
+                cursor.execute(f"ALTER TABLE {TABLE} ADD COLUMN {col_name} {col_def};")
 
-        # C) Índices (opcionales, pero útiles). Crear solo si faltan.
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM information_schema.STATISTICS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'academia_horarios_comision'
-              AND INDEX_NAME = 'comision_mep_idx'
-        """)
-        (exists_idx_mep,) = cursor.fetchone()
-        if not exists_idx_mep:
-            cursor.execute("""
-                CREATE INDEX `comision_mep_idx`
-                ON `academia_horarios_comision` (`materia_en_plan_id`);
-            """)
+def drop_columns(apps, schema_editor):
+    vendor = schema_editor.connection.vendor
+    if vendor != "mysql":
+        return
 
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM information_schema.STATISTICS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'academia_horarios_comision'
-              AND INDEX_NAME = 'comision_periodo_idx'
-        """)
-        (exists_idx_per,) = cursor.fetchone()
-        if not exists_idx_per:
-            cursor.execute("""
-                CREATE INDEX `comision_periodo_idx`
-                ON `academia_horarios_comision` (`periodo_id`);
-            """)
+    with schema_editor.connection.cursor() as cursor:
+        for col_name, _ in COLUMNS_TO_ADD_MYSQL:
+            # Si no existe, DROP fallaría; envolvemos en un try opcional
+            try:
+                cursor.execute(f"ALTER TABLE {TABLE} DROP COLUMN {col_name};")
+            except Exception:
+                pass
 
 class Migration(migrations.Migration):
     dependencies = [
+        # 👇 poné acá el nombre EXACTO (sin .py) de tu migración anterior
         ("academia_horarios", "0005_add_profesorados_column_to_plan"),
     ]
+
     operations = [
-        migrations.RunPython(add_missing_columns, migrations.RunPython.noop),
+        migrations.RunPython(add_missing_columns, drop_columns),
     ]
