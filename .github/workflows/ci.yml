@@ -1,84 +1,87 @@
-name: CI (lint + django smoke)
+name: CI (Lint, Check & Tests)
+
 on:
   push:
     branches: [ main, dev ]
   pull_request:
 
 jobs:
-  check:
+  test_and_lint:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    env:
+      DJANGO_SETTINGS_MODULE: academia_project.settings
+      USE_SQLITE_FOR_TESTS: "1"
+      DJANGO_DEBUG: "1"
+
     steps:
-      - uses: actions/checkout@v4
+      - name: checkout (Revisar código) 🛎️
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python ${{ matrix.python-version }} 🐍
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
-      - name: Instalar dependencias
+      - name: Cache de dependencias de Pip ⚡
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # 👇 Mover primero los paquetes del sistema necesarios
+      - name: Paquetes del sistema (mysqlclient) 🧰
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmysqlclient-dev || true
-          python -m pip install -U pip
-          pip install -r requirements.txt
-          pip install pytest pytest-django ruff
+          sudo apt-get install -y libmysqlclient-dev || echo "mysqlclient-dev no disponible, continuando..."
 
-      - name: Lint (ruff) — informativo
+      - name: Instalar dependencias 📦
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest pytest-django ruff
+
+      - name: Lint con Ruff (no bloqueante) 🎨
         run: ruff check . || true
 
-      # 🔎 Auto-detectar dónde está manage.py
-      - name: Detectar manage.py
-        id: where
+      - name: Detectar ruta de manage.py 🔍
+        id: managepy
         run: |
-          set -e
           if [ -f manage.py ]; then
-            echo "manage=manage.py" >> $GITHUB_OUTPUT
+            echo "path=manage.py" >> $GITHUB_OUTPUT
           elif [ -f academia_project/manage.py ]; then
-            echo "manage=academia_project/manage.py" >> $GITHUB_OUTPUT
+            echo "path=academia_project/manage.py" >> $GITHUB_OUTPUT
           else
-            echo "No se encontró manage.py en el repo"; ls -la; echo "---"; ls -la academia_project || true
+            echo "ERROR: No se encontró manage.py" >&2
             exit 1
           fi
 
-      - name: Django check (config básica)
-        env:
-          DJANGO_SETTINGS_MODULE: academia_project.settings
-          USE_SQLITE_FOR_TESTS: "1"
-          DJANGO_DEBUG: "1"
-        run: |
-          python "${{ steps.where.outputs.manage }}" check
+      - name: Django Check (configuración básica) ✅
+        run: python ${{ steps.managepy.outputs.path }} check
 
-      # ⚠️ sigue informativo por ahora
-      - name: Django check --deploy (simular prod, no bloqueante)
+      - name: Django Check --deploy (bloqueante) 🔒
         env:
-          DJANGO_SETTINGS_MODULE: academia_project.settings
-          USE_SQLITE_FOR_TESTS: "1"
           DJANGO_DEBUG: "0"
           DJANGO_SECRET_KEY: "dummy-key-for-ci"
           DJANGO_ALLOWED_HOSTS: "example.com"
           DJANGO_CSRF_TRUSTED_ORIGINS: "https://example.com"
-        run: |
-          python "${{ steps.where.outputs.manage }}" check --deploy --fail-level WARNING || true
+          SECURE_SSL_REDIRECT: "1"
+          USE_PROXY_SSL_HEADER: "1"
+        run: python ${{ steps.managepy.outputs.path }} check --deploy --fail-level WARNING
 
-      # ✅ Verificar que no falten migraciones
-      - name: Makemigrations --check (no debe generar nada)
-        env:
-          DJANGO_SETTINGS_MODULE: academia_project.settings
-          USE_SQLITE_FOR_TESTS: "1"
-        run: |
-          python "${{ steps.where.outputs.manage }}" makemigrations --check --dry-run
+      - name: Verificar que no falten migraciones 📜
+        run: python ${{ steps.managepy.outputs.path }} makemigrations --check --dry-run
 
-      # ✅ Aplicar migraciones reales en SQLite
-      - name: Migrate (SQLite)
-        env:
-          DJANGO_SETTINGS_MODULE: academia_project.settings
-          USE_SQLITE_FOR_TESTS: "1"
-        run: |
-          python "${{ steps.where.outputs.manage }}" migrate --noinput
+      - name: Aplicar migraciones en SQLite 🛠️
+        run: python ${{ steps.managepy.outputs.path }} migrate --noinput
 
-      # ✅ Tests sin --nomigrations
-      - name: Tests (pytest)
+      - name: Ejecutar tests con Pytest 🧪
         env:
-          DJANGO_SETTINGS_MODULE: academia_project.settings
-          USE_SQLITE_FOR_TESTS: "1"
-          RUN_STRICT_HORARIOS_TESTS: "0"   # seguimos apagados hasta mapear campos reales
+          RUN_STRICT_HORARIOS_TESTS: "0"
         run: pytest -q
