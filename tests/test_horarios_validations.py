@@ -1,15 +1,16 @@
 import os
 import pytest
+from django.apps import apps
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 
+# 🚦 Ejecuta estos tests SOLO si RUN_STRICT_HORARIOS_TESTS=1
 if os.getenv("RUN_STRICT_HORARIOS_TESTS") != "1":
     pytest.skip(
         "Saltando tests de validación de horarios. "
-        "Activa con RUN_STRICT_HORARIOS_TESTS=1 cuando estén mapeados los campos.",
+        "Actívalos con RUN_STRICT_HORARIOS_TESTS=1.",
         allow_module_level=True,
     )
-
-from django.apps import apps
-from django.core.exceptions import ValidationError
 
 pytestmark = pytest.mark.django_db
 
@@ -18,48 +19,57 @@ M_HORARIO = "Horario"
 M_DOCENTE = "Docente"
 M_COMISION = "Comision"
 
-# Ajustá estos nombres cuando lo activemos
+# ← Si tus nombres reales son distintos, cambiá estas 3 constantes
 DIA_FIELD = "dia"
 TURNO_FIELD = "turno"
 BLOQUE_FIELD = "bloque"
 
-def _get_model(app_label, model_name):
+# Tope tentativo; si tenés otro real, ajustá aquí o pasalo por env TOPE_HORAS_TEST
+TOPE = int(os.getenv("TOPE_HORAS_TEST", "4"))
+
+def _gm(app_label, model_name):
     try:
         return apps.get_model(app_label, model_name)
     except LookupError:
         return None
 
-def _must_have_models():
-    Horario = _get_model(APP, M_HORARIO)
-    Docente = _get_model(APP, M_DOCENTE)
-    Comision = _get_model(APP, M_COMISION)
-    if not all([Horario, Docente, Comision]):
-        pytest.skip("Modelos no encontrados; ajustar nombres antes de activar.")
-    return Horario, Docente, Comision
+H = _gm(APP, M_HORARIO)
+D = _gm(APP, M_DOCENTE)
+C = _gm(APP, M_COMISION)
+
+if not all([H, D, C]):
+    pytest.skip("Modelos no encontrados; ajustar APP/M_* antes de activar.")
+
+def _mk_docente(**kw):
+    defaults = dict(nombre="Doc Test", dni="99999999")
+    defaults.update(kw)
+    return D.objects.create(**defaults)
+
+def _mk_comision(**kw):
+    defaults = dict(nombre="COM-TEST")
+    defaults.update(kw)
+    return C.objects.create(**defaults)
+
+def _create_horario(**kw):
+    return H.objects.create(**kw)
 
 def test_conflicto_docente_mismo_bloque():
-    Horario, Docente, Comision = _must_have_models()
-    d = Docente.objects.create(nombre="Test", dni="99999999")
-    c = Comision.objects.create(nombre="COM-TEST")
-
-    kwargs = { "docente": d, "comision": c, DIA_FIELD: 1, TURNO_FIELD: "M", BLOQUE_FIELD: "1" }
-    Horario.objects.create(**kwargs)
-
-    with pytest.raises(ValidationError):
-        h2 = Horario(**kwargs)
-        h2.full_clean()
-        h2.save()
+    d = _mk_docente()
+    c = _mk_comision()
+    base = {"docente": d, "comision": c, DIA_FIELD: 1, TURNO_FIELD: "M", BLOQUE_FIELD: "1"}
+    _create_horario(**base)
+    with pytest.raises((ValidationError, IntegrityError)):
+        h = H(**base)
+        h.full_clean()  # por si la validación está en clean()
+        h.save()        # o si la validación/constraint es a nivel DB
 
 def test_tope_de_horas_superado():
-    Horario, Docente, Comision = _must_have_models()
-    d = Docente.objects.create(nombre="Test", dni="99999999")
-    c = Comision.objects.create(nombre="COM-TEST")
-
-    base = { "docente": d, "comision": c, DIA_FIELD: 2, TURNO_FIELD: "M" }
-    for i in range(4):  # AJUSTAR al tope real
-        Horario.objects.create(**{**base, BLOQUE_FIELD: str(i + 1)})
-
-    with pytest.raises(ValidationError):
-        h = Horario(**{**base, BLOQUE_FIELD: "5"})
+    d = _mk_docente()
+    c = _mk_comision()
+    base = {"docente": d, "comision": c, DIA_FIELD: 2, TURNO_FIELD: "M"}
+    for i in range(TOPE):
+        _create_horario(**{**base, BLOQUE_FIELD: str(i + 1)})
+    with pytest.raises((ValidationError, IntegrityError)):
+        h = H(**{**base, BLOQUE_FIELD: str(TOPE + 1)})
         h.full_clean()
         h.save()
