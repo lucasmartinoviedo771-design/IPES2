@@ -18,7 +18,7 @@ jobs:
       DJANGO_SETTINGS_MODULE: academia_project.settings
       USE_SQLITE_FOR_TESTS: "1"
       DJANGO_DEBUG: "1"
-      TIME_ZONE: "UTC"  # <- Cambio aplicado aquí
+      TIME_ZONE: "UTC"
 
     steps:
       - name: Checkout (Revisar código) 🛎️
@@ -70,7 +70,8 @@ jobs:
       - name: Django Check --deploy (bloqueante) 🔒
         env:
           DJANGO_DEBUG: "0"
-          DJANGO_SECRET_KEY: "dummy-key-for-ci"
+          # Usa un secret de GitHub para la clave, en lugar de un valor fijo
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           DJANGO_ALLOWED_HOSTS: "example.com"
           DJANGO_CSRF_TRUSTED_ORIGINS: "https://example.com"
           SECURE_SSL_REDIRECT: "1"
