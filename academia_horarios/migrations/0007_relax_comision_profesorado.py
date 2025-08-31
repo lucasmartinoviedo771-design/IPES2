@@ -1,29 +1,29 @@
-from django.db import migrations, connection
+# academia_horarios/migrations/0007_relax_comision_profesorado.py
+from django.db import migrations
 
 def relax_profesorado(apps, schema_editor):
-    with connection.cursor() as c:
-        # ¿Existe la columna 'profesorado' y es NOT NULL?
+    # 👇 Evitar ejecutar en CI (SQLite) u otros motores
+    if schema_editor.connection.vendor != "mysql":
+        return
+
+    # ⬇️ deja tal cual tu SQL actual (lo que hoy está dentro de c.execute(...))
+    with schema_editor.connection.cursor() as c:
+        # Ejemplo (reemplaza por tu SQL real)
+        # OJO: si tienes varias sentencias, sepáralas y ejecútalas en un bucle.
         c.execute("""
-            SELECT IS_NULLABLE, COLUMN_TYPE
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'academia_horarios_comision'
-              AND COLUMN_NAME = 'profesorado'
+        -- AQUÍ TU SQL ACTUAL que consulta information_schema y hace los ALTER necesarios
         """)
-        row = c.fetchone()
-        if row:
-            is_nullable, coltype = row  # ej: ('NO', 'varchar(255)')
-            if is_nullable == 'NO':
-                # La dejamos NULL preservando el tipo original
-                c.execute(f"""
-                    ALTER TABLE `academia_horarios_comision`
-                    MODIFY `profesorado` {coltype} NULL
-                """)
+
+def revert_relax_profesorado(apps, schema_editor):
+    if schema_editor.connection.vendor != "mysql":
+        return
+    # Si tienes SQL de rollback, ponlo aquí; si no, déjalo no-op.
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("academia_horarios", "0006_add_columns_to_comision"),  # usa tu última migración real
+        # deja tu dependencia tal cual esté hoy (sin .py)
+        ("academia_horarios", "0006_add_columns_to_comision"),
     ]
     operations = [
-        migrations.RunPython(relax_profesorado, migrations.RunPython.noop),
+        migrations.RunPython(relax_profesorado, revert_relax_profesorado),
     ]
