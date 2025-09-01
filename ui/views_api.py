@@ -66,7 +66,6 @@ def api_docentes(request):
     return JsonResponse({'results': results}, status=200)
 
 
-
 def api_turnos(request):
     """
     Devuelve los turnos válidos para armar horarios.
@@ -200,3 +199,17 @@ def api_horario_toggle(request):
         "version": entry["version"],
         "updated": entry["updated"],
     })
+
+@require_GET
+def api_horario_profesorado(request):
+    # Espera: carrera (id), plan_id, turno (m|t|v|s)
+    # TODO: reemplazar por consulta real a tu modelo de horarios
+    data = []
+    return JsonResponse({"items": data})
+
+@require_GET
+def api_horario_docente(request):
+    # Espera: docente_id, turno (m|t|v|s)
+    # TODO: reemplazar por consulta real a tu modelo de horarios
+    data = []
+    return JsonResponse({"items": data})

@@ -30,18 +30,18 @@ body{
 /* Topbar */
 .topbar{ background:var(--topbar); color:#fff; width:100%; }
 .topbar-inner{
-  max-width:1180px; margin:0 auto; padding:12px 20px;
+  max-width:1400px; margin:0 auto; padding:12px 20px;
   display:flex; align-items:center; justify-content:space-between;
 }
 .brand{ display:flex; align-items:center; gap:12px }
-.brand-img{ width:38px; height:38px; object-fit:contain }
-.brand-title{ font-weight:700; font-size:18px; letter-spacing:.2px }
+.brand-img{ width:114px; height:114px; object-fit:contain }
+.brand-title{ font-weight:700; font-size:24px; letter-spacing:.2px }
 .topbar a{ color:#fff; text-decoration:none }
 .topbar a:hover{ text-decoration:underline }
 
 /* Layout app */
 .app{
-  max-width:1180px; margin:18px auto; padding:0 20px;
+  max-width:1400px; margin:18px 0; padding:0 20px;
   display:grid; grid-template-columns:260px 1fr; gap:20px;
 }
 .sidebar{
@@ -70,7 +70,7 @@ body{
   content:"▸"; opacity:.66; transition: transform .15s ease;
 }
 .nav-item.open .nav-parent:after{ transform:rotate(90deg) }
-.subnav{ max-height:0; overflow:hidden; transition:max-height .2s ease; padding-left:10px }
+.subnav{ max-height:0; overflow:hidden; transition:max-height .2s ease; }
 .nav-item.open .subnav{ max-height:420px }
 .subnav a{
   display:block; margin:6px 0 0; padding:8px 10px; border-radius:10px; color:var(--sidebar-text); text-decoration:none;
@@ -230,8 +230,8 @@ label{ color:#3b3b3b; font-size:14px }
 
 /* 1) Topbar más “gruesa” + título más grande */
 .topbar{
-  padding: 18px 24px;                /* antes 10–12 px aprox */
-  min-height: 72px;                  /* fuerza la altura visual */
+  padding: 24px 32px;                /* antes 10–12 px aprox */
+  min-height: 130px;                  /* fuerza la altura visual */
 }
 .topbar .left a,
 .topbar .left .brand{
@@ -250,7 +250,7 @@ label{ color:#3b3b3b; font-size:14px }
   display: flex;
   align-items: center;
   gap: .6rem;
-  font-size: 1.8rem;                 /* ~2x respecto a lo típico */
+  font-size: 2.7rem;                 /* ~3x respecto a lo típico */
   line-height: 1.2;
 }
 .sidebar .logo img{
@@ -260,7 +260,7 @@ label{ color:#3b3b3b; font-size:14px }
 
 /* 4) Submenús con sangría (cascada visible) */
 .nav ul ul,              /* sub-UL genérico */
-.nav .submenu{           /* por si usás .submenu en tus plantillas */
+.nav .subnav{           /* por si usás .subnav en tus plantillas */
   margin-left: 12px;
   padding-left: 12px;
   border-left: 2px dashed var(--border, #ddd);

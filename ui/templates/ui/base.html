@@ -63,7 +63,14 @@
     <!-- 5) Final -->
     <a href="#" class="{% block nav_final %}{% endblock %}">Final</a>
 
-    
+    <!-- Horarios -->
+    <div class="nav-item has-children">
+      <a href="#" class="nav-parent">Horarios</a>
+      <div class="subnav">
+        <a href="{% url 'ui:horarios_docente' %}">Por docente</a>
+        <a href="{% url 'ui:horarios_profesorado' %}">Por profesorado</a>
+      </div>
+    </div>
 
     <!-- 7) Administración (nombre sugerido para lo “operativo”) -->
     <div class="nav-item has-children">

@@ -1,0 +1,46 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}Horarios por Docente{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <h1>Horarios por Docente</h1>
+  <p>Elegí un docente y un turno para ver su semana de clases con bloques de 40’.</p>
+
+  <div class="form-grid-2">
+    <div>
+      <label for="hd_docente">Docente</label>
+      <select id="hd_docente" class="select">
+        <option value="">---------</option>
+      </select>
+    </div>
+    <div>
+      <label for="hd_turno">Turno</label>
+      <select id="hd_turno" class="select">
+        <option value="">---------</option>
+        <option value="m">Mañana</option>
+        <option value="t">Tarde</option>
+        <option value="v">Vespertino</option>
+        <option value="s">Sábado (Mañana)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="hp-toolbar">
+    <button id="hd_btn_imprimir" class="btn btn-secondary">Imprimir</button>
+  </div>
+
+  <div id="hd_grid" class="horario-grid"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const API_DOCENTES = "{% url 'ui:api_docentes' %}";
+  const API_HDOC     = "{% url 'ui:api_horario_docente' %}";
+</script>
+<link rel="stylesheet" href="{% static 'ui/css/horarios.css' %}">
+<script src="{% static 'ui/js/horarios_common.js' %}"></script>
+<script src="{% static 'ui/js/horarios_docente.js' %}"></script>
+{% endblock %}

@@ -11,6 +11,7 @@ from .views import (
 from . import api
 from . import views
 from . import views_api
+from . import views_panel
 
 app_name = "ui"
 
@@ -60,4 +61,12 @@ urlpatterns = [
 
     # Oferta
     path("oferta", views.oferta_por_plan, name="oferta_por_plan"),
+
+    # Horarios
+    path("horarios/profesorado/", views_panel.horarios_profesorado, name="horarios_profesorado"),
+    path("horarios/docente/", views_panel.horarios_docente, name="horarios_docente"),
+
+    # APIs de solo-lectura para poblar las grillas
+    path("api/horarios/profesorado", views_api.api_horario_profesorado, name="api_horario_profesorado"),
+    path("api/horarios/docente", views_api.api_horario_docente, name="api_horario_docente"),
 ]
