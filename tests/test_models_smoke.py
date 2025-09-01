@@ -2,16 +2,19 @@ import pytest
 from django.apps import apps
 from django.conf import settings as dj_settings
 
+
 def _get_model(app_label: str, model_name: str):
     try:
         return apps.get_model(app_label, model_name)
     except LookupError:
         return None
 
+
 def test_apps_installed():
     assert "academia_core.apps.AcademiaCoreConfig" in dj_settings.INSTALLED_APPS
     assert "academia_horarios" in dj_settings.INSTALLED_APPS
     assert "ui" in dj_settings.INSTALLED_APPS
+
 
 @pytest.mark.parametrize(
     "app_label, model_name",

@@ -1,5 +1,6 @@
-from pathlib import Path
 import os
+from pathlib import Path
+
 from django.core.exceptions import ImproperlyConfigured
 
 # =========== Paths ===========
@@ -27,9 +28,11 @@ LOGGING = {
 # =========== .env (opcional, usando python-dotenv) ===========
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except Exception:
     pass
+
 
 # Helpers para env
 def getenv_bool(name: str, default: bool = False) -> bool:
@@ -38,11 +41,13 @@ def getenv_bool(name: str, default: bool = False) -> bool:
         return default
     return str(v).lower() in {"1", "true", "t", "yes", "y"}
 
+
 def getenv_list(name: str, default: list[str] | None = None) -> list[str]:
     raw = os.getenv(name)
     if not raw:
         return default or []
     return [item.strip() for item in raw.split(",") if item.strip()]
+
 
 # =========== Seguridad / Debug ===========
 DEBUG = getenv_bool("DJANGO_DEBUG", default=True)
@@ -70,9 +75,7 @@ else:
 
     # Orígenes de confianza para CSRF en producción (deben ser provistos)
     CSRF_TRUSTED_ORIGINS = [
-        o.strip()
-        for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
-        if o.strip()
+        o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
     ]
     if not CSRF_TRUSTED_ORIGINS:
         raise ImproperlyConfigured("Set DJANGO_CSRF_TRUSTED_ORIGINS in production")

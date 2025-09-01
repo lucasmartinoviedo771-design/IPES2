@@ -1,41 +1,43 @@
 # ui/views.py
-from django.urls import reverse_lazy, reverse
+from django.apps import apps
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Q
+from django.http import HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse, reverse_lazy
+from django.views import View
+from django.views.decorators.http import require_POST
 from django.views.generic import (
     CreateView,
-    FormView,
-    TemplateView,
-    ListView,
     DetailView,
+    FormView,
+    ListView,
+    TemplateView,
 )
-from django.shortcuts import redirect, get_object_or_404, render
-from django.db.models import Q
-from django.views import View
-from django.http import HttpResponseForbidden
-from django.contrib import messages
-from django.db import transaction
-from django.apps import apps
-from django.core.exceptions import ValidationError
-from django.views.decorators.http import require_POST
 
 # Modelos
-from academia_core.models import Estudiante, Docente
-from academia_horarios.models import Comision, TimeSlot, HorarioClase
+from academia_core.models import Docente, Estudiante
 from academia_horarios import services
+from academia_horarios.models import Comision, HorarioClase, TimeSlot
+
+from .auth_views import ROLE_HOME  # Importar ROLE_HOME
 
 # Formularios de la app UI
 from .forms import (
+    CERT_DOCENTE_LABEL,
+    CorrelatividadesForm,
     EstudianteNuevoForm,
     InscripcionProfesoradoForm,
     NuevoDocenteForm,
-    CERT_DOCENTE_LABEL,
-    CorrelatividadesForm,
     OfertaFilterForm,
 )
 
 # Mixin de permisos por rol
-from .permissions import RolesPermitidosMixin, RolesAllowedMixin
-from .auth_views import ROLE_HOME # Importar ROLE_HOME
+from .permissions import RolesAllowedMixin, RolesPermitidosMixin
+
 
 def resolve_estudiante_from_request(request):
     """
@@ -89,8 +91,10 @@ class EstudianteListView(LoginRequiredMixin, ListView):
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
-                Q(apellido__icontains=q) | Q(nombre__icontains=q) |
-                Q(dni__icontains=q) | Q(email__icontains=q)
+                Q(apellido__icontains=q)
+                | Q(nombre__icontains=q)
+                | Q(dni__icontains=q)
+                | Q(email__icontains=q)
             )
         return qs
 
@@ -99,10 +103,12 @@ class EstudianteListView(LoginRequiredMixin, ListView):
         ctx["q"] = self.request.GET.get("q", "")
         return ctx
 
+
 class EstudianteDetailView(LoginRequiredMixin, DetailView):
     model = Estudiante
     template_name = "ui/personas/estudiantes_detail.html"
     context_object_name = "obj"
+
 
 class NuevoEstudianteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
     permission_required = "academia_core.add_estudiante"
@@ -110,6 +116,7 @@ class NuevoEstudianteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
     form_class = EstudianteNuevoForm
     template_name = "ui/personas/estudiante_form.html"
     success_url = reverse_lazy("ui:estudiante_nuevo")
+
 
 class DocenteListView(LoginRequiredMixin, ListView):
     model = Docente
@@ -122,8 +129,10 @@ class DocenteListView(LoginRequiredMixin, ListView):
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
-                Q(apellido__icontains=q) | Q(nombre__icontains=q) |
-                Q(dni__icontains=q) | Q(email__icontains=q)
+                Q(apellido__icontains=q)
+                | Q(nombre__icontains=q)
+                | Q(dni__icontains=q)
+                | Q(email__icontains=q)
             )
         return qs
 
@@ -131,6 +140,7 @@ class DocenteListView(LoginRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx["q"] = self.request.GET.get("q", "")
         return ctx
+
 
 class NuevoDocenteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
     permission_required = "academia_core.add_docente"
@@ -146,10 +156,12 @@ class InscribirCarreraView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     Pantalla de Inscripción a Carrera (placeholder).
     Restringida a Secretaría / Admin / Bedel.
     """
+
     allowed_roles = ["Secretaría", "Admin", "Bedel"]
     permission_required = "academia_core.add_estudianteprofesorado"
     template_name = "ui/inscripciones/carrera.html"
     extra_context = {"page_title": "Inscribir a Carrera"}
+
 
 class InscribirMateriaView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     template_name = "ui/inscripciones/materia.html"
@@ -158,14 +170,20 @@ class InscribirMateriaView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["prefill_est"] = self.request.GET.get("est") or ""
-        ctx["estudiantes"] = Estudiante.objects.all().order_by("apellido", "nombre").values("id", "apellido", "nombre", "dni")
+        ctx["estudiantes"] = (
+            Estudiante.objects.all()
+            .order_by("apellido", "nombre")
+            .values("id", "apellido", "nombre", "dni")
+        )
         return ctx
+
 
 class InscribirFinalView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     allowed_roles = ["Secretaría", "Admin", "Bedel"]
     permission_required = "academia_core.enroll_others"
     template_name = "ui/inscripciones/final.html"
     extra_context = {"page_title": "Inscribir a Mesa de Final"}
+
 
 class InscripcionProfesoradoView(RolesPermitidosMixin, LoginRequiredMixin, CreateView):
     allowed_roles = {"Admin", "Secretaría", "Bedel"}
@@ -184,14 +202,21 @@ class InscripcionProfesoradoView(RolesPermitidosMixin, LoginRequiredMixin, Creat
         cd = form.cleaned_data
         RequisitosIngreso = apps.get_model("academia_core", "RequisitosIngreso")
         req_fields = [
-            "req_dni", "req_cert_med", "req_fotos", "req_folios",
-            "req_titulo_sec", "req_titulo_tramite", "req_adeuda",
-            "req_adeuda_mats", "req_adeuda_inst", "req_titulo_sup",
-            "req_incumbencias", "req_condicion",
+            "req_dni",
+            "req_cert_med",
+            "req_fotos",
+            "req_folios",
+            "req_titulo_sec",
+            "req_titulo_tramite",
+            "req_adeuda",
+            "req_adeuda_mats",
+            "req_adeuda_inst",
+            "req_titulo_sup",
+            "req_incumbencias",
+            "req_condicion",
         ]
         RequisitosIngreso.objects.update_or_create(
-            inscripcion=obj,
-            defaults={k: cd.get(k) for k in req_fields}
+            inscripcion=obj, defaults={k: cd.get(k) for k in req_fields}
         )
         return super().form_valid(form)
 
@@ -204,11 +229,13 @@ class InscripcionProfesoradoView(RolesPermitidosMixin, LoginRequiredMixin, Creat
                 estado, is_cert = form.compute_estado_admin()
             elif not form.is_bound and form.initial:
                 estado, is_cert = form._calculate_estado_from_data(form.initial)
-        ctx.update({
-            "estado_admin": estado,
-            "is_cert_docente": is_cert,
-            "CERT_DOCENTE_LABEL": CERT_DOCENTE_LABEL,
-        })
+        ctx.update(
+            {
+                "estado_admin": estado,
+                "is_cert_docente": is_cert,
+                "CERT_DOCENTE_LABEL": CERT_DOCENTE_LABEL,
+            }
+        )
         return ctx
 
 
@@ -237,13 +264,19 @@ class CorrelatividadesView(LoginRequiredMixin, RolesAllowedMixin, FormView):
                 Correlatividad.objects.filter(plan=plan, espacio=espacio).delete()
                 for rid in reg_ids:
                     Correlatividad.objects.create(
-                        plan=plan, espacio=espacio, requiere_espacio_id=rid,
-                        tipo=self.TIPO_CURSAR, requisito=self.REQUISITO_REGULAR
+                        plan=plan,
+                        espacio=espacio,
+                        requiere_espacio_id=rid,
+                        tipo=self.TIPO_CURSAR,
+                        requisito=self.REQUISITO_REGULAR,
                     )
                 for aid in apr_ids:
                     Correlatividad.objects.create(
-                        plan=plan, espacio=espacio, requiere_espacio_id=aid,
-                        tipo=self.TIPO_CURSAR, requisito=self.REQUISITO_APROBADA
+                        plan=plan,
+                        espacio=espacio,
+                        requiere_espacio_id=aid,
+                        tipo=self.TIPO_CURSAR,
+                        requisito=self.REQUISITO_APROBADA,
                     )
             messages.success(self.request, "Correlatividades guardadas correctamente.")
         except LookupError:
@@ -255,6 +288,7 @@ class CorrelatividadesView(LoginRequiredMixin, RolesAllowedMixin, FormView):
 class CartonEstudianteView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     template_name = "ui/estudiante/carton.html"
     allowed_roles = ["Estudiante", "Bedel", "Secretaría", "Admin"]
+
 
 class HistoricoEstudianteView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     template_name = "ui/estudiante/historico.html"
@@ -282,6 +316,7 @@ def _redir_comision(comision):
     """
     return redirect("ui:comision_detail", pk=comision.pk)
 
+
 @require_POST
 def asignar_docente(request, pk):
     comision = get_object_or_404(Comision, pk=pk)
@@ -298,6 +333,7 @@ def asignar_docente(request, pk):
         messages.error(request, e.message if hasattr(e, "message") else str(e))
     return _redir_comision(comision)
 
+
 @require_POST
 def agregar_horario(request, pk):
     """
@@ -309,7 +345,7 @@ def agregar_horario(request, pk):
     try:
         dia_semana = int(request.POST.get("dia_semana"))
         inicio = request.POST.get("inicio")  # "HH:MM"
-        fin = request.POST.get("fin")        # "HH:MM"
+        fin = request.POST.get("fin")  # "HH:MM"
     except Exception:
         messages.error(request, "Datos de horario inválidos.")
         return _redir_comision(comision)
@@ -339,15 +375,16 @@ def agregar_horario(request, pk):
             messages.error(request, e.message if hasattr(e, "message") else str(e))
     return _redir_comision(comision)
 
+
 def oferta_por_plan(request):
     form = OfertaFilterForm(request.GET or None)
 
     # Si necesitás filtrar Período según algo, podés retocar el queryset acá.
     # Por ejemplo, siempre aseguramos que tenga periodos:
-    form.fields['periodo'].queryset = form.fields['periodo'].queryset
+    form.fields["periodo"].queryset = form.fields["periodo"].queryset
 
     ctx = {
-        'form': form,
+        "form": form,
         # ... y lo que ya usás para construir la tabla / resultados
     }
-    return render(request, 'ui/oferta_por_plan.html', ctx)
+    return render(request, "ui/oferta_por_plan.html", ctx)

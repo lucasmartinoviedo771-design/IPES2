@@ -1,10 +1,10 @@
 # academia_core/signals.py
 
 from django.apps import apps
-from django.dispatch import receiver
 
 # ¡Importante! Faltaba importar las señales de autenticación
 from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.dispatch import receiver
 
 # No obtengas los modelos aquí arriba
 
@@ -15,7 +15,7 @@ def _rol_de(user):
 
 
 @receiver(user_logged_in)
-def _on_login(sender, user, **kwargs):
+def _on_login(_sender, user, **kwargs):
     # Obtén el modelo JUSTO cuando lo necesites
     Actividad = apps.get_model("academia_core", "Actividad")
 
@@ -34,7 +34,7 @@ def _on_login(sender, user, **kwargs):
 
 
 @receiver(user_logged_out)
-def _on_logout(sender, user, **kwargs):
+def _on_logout(_sender, user, **kwargs):
     # Obtén el modelo JUSTO cuando lo necesites
     Actividad = apps.get_model("academia_core", "Actividad")
 

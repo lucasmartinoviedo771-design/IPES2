@@ -2,78 +2,77 @@
 from django.urls import path
 
 from .views import (
-    carton_primaria_por_dni,
-    carton_primaria_pdf,
-    buscar_carton_primaria,
-    carton_por_prof_y_plan,
-    carton_generico_pdf,
-    home_router,
     alumno_home,
+    buscar_carton_primaria,
+    carton_generico_pdf,
+    carton_por_prof_y_plan,
+    carton_primaria_pdf,
+    carton_primaria_por_dni,
     docente_espacio_detalle,
+    home_router,
 )
-from .views_panel import (
-    panel,
-    panel_correlatividades,
-    panel_horarios,
-    panel_docente,
-    # Guardados (POST)
-    crear_inscripcion_cursada,
-    crear_movimiento,
-    cargar_nota,
-    # Redirecciones utilitarias
-    redir_estudiante,
-    redir_inscripcion,
-    # NUEVO: Vista para el formulario de correlatividades
-    correlatividades_form_view,
-)
-
 from .views_api import (
-    api_listar_estudiantes,
-    api_listar_docentes,
-    api_listar_profesorados,
-    api_listar_planes_estudios,
-    api_get_estudiante_detalle,
-    api_get_docente_detalle,
-    api_get_espacio_curricular_detalle,
-    api_get_movimientos_estudiante,
+    api_correlatividades_por_materia,  # NEW IMPORT
     api_espacios_habilitados,
     api_get_correlatividades,
-    api_get_planes_for_profesorado,
+    api_get_docente_detalle,
+    api_get_espacio_curricular_detalle,
     api_get_espacios_for_plan,
-    api_correlatividades_por_materia, # NEW IMPORT
+    api_get_estudiante_detalle,
+    api_get_movimientos_estudiante,
+    api_get_planes_for_profesorado,
+    api_listar_docentes,
+    api_listar_estudiantes,
+    api_listar_planes_estudios,
+    api_listar_profesorados,
 )
 
+# CBVs ya existentes
+from .views_cbv import (
+    DocenteCreateView,
+    DocenteDeleteView,
+    # Docentes
+    DocenteListView,
+    DocenteUpdateView,
+    EstudianteCreateView,
+    EstudianteDeleteView,
+    # Estudiantes
+    EstudianteListView,
+    EstudianteUpdateView,
+    MateriaCreateView,
+    MateriaDeleteView,
+    # Materias
+    MateriaListView,
+    MateriaUpdateView,
+)
 from .views_inscripciones import (
     InscripcionCarreraCreate,
     InscripcionMateriaCreate,
     InscripcionMesaCreate,
 )
-
-# CBVs ya existentes
-from .views_cbv import (
-    # Estudiantes
-    EstudianteListView,
-    EstudianteCreateView,
-    EstudianteUpdateView,
-    EstudianteDeleteView,
-    # Docentes
-    DocenteListView,
-    DocenteCreateView,
-    DocenteUpdateView,
-    DocenteDeleteView,
-    # Materias
-    MateriaListView,
-    MateriaCreateView,
-    MateriaUpdateView,
-    MateriaDeleteView,
+from .views_panel import (
+    cargar_nota,
+    # NUEVO: Vista para el formulario de correlatividades
+    correlatividades_form_view,
+    # Guardados (POST)
+    crear_inscripcion_cursada,
+    crear_movimiento,
+    panel,
+    panel_correlatividades,
+    panel_docente,
+    panel_horarios,
+    # Redirecciones utilitarias
+    redir_estudiante,
+    redir_inscripcion,
 )
 
 urlpatterns = [
     # ---------------- Vistas principales (NUEVO) ----------------
-    path("", home_router, name="home_router"), # Ruta principal para el router de home
-    path("alumno/home/", alumno_home, name="alumno_home"), # Home del alumno
-    path("docente/espacio/<int:espacio_id>/", docente_espacio_detalle, name="docente_espacio_detalle"), # Detalle de espacio para docente
-
+    path("", home_router, name="home_router"),  # Ruta principal para el router de home
+    path("alumno/home/", alumno_home, name="alumno_home"),  # Home del alumno
+    path(
+        "docente/espacio/<int:espacio_id>/", docente_espacio_detalle, name="docente_espacio_detalle"
+    ),  # Detalle de espacio para docente
     # ---------------- Cartones ----------------
     path("carton/primaria/", buscar_carton_primaria, name="buscar_carton_primaria"),
     path("carton/primaria/<str:dni>/", carton_primaria_por_dni, name="carton_primaria"),
@@ -98,9 +97,7 @@ urlpatterns = [
     # Panel de Estudiante (cartón por inscripción)
     # Nota: el view espera <int:insc_id>
     path("panel/estudiante/<int:insc_id>/", panel, name="estudiante_panel"),
-    path(
-        "panel/correlatividades/", panel_correlatividades, name="panel_correlatividades"
-    ),
+    path("panel/correlatividades/", panel_correlatividades, name="panel_correlatividades"),
     path("panel/horarios/", panel_horarios, name="panel_horarios"),
     path("panel/docente/", panel_docente, name="panel_docente"),
     # NUEVO: Ruta para el formulario de correlatividades
@@ -191,7 +188,11 @@ urlpatterns = [
         api_get_correlatividades,
         name="api_correlatividades_con_insc",
     ),
-    path("api/planes-por-profesorado/", api_get_planes_for_profesorado, name="api_get_planes_for_profesorado"),
+    path(
+        "api/planes-por-profesorado/",
+        api_get_planes_for_profesorado,
+        name="api_get_planes_for_profesorado",
+    ),
     path("api/espacios-por-plan/", api_get_espacios_for_plan, name="api_get_espacios_for_plan"),
     # ---------------- Guardados (POST) --------------
     path(
@@ -207,16 +208,18 @@ urlpatterns = [
     path("panel/cargar-nota/", cargar_nota, name="cargar_nota"),
     # ---------------- Redirecciones utilitarias -----
     path("redir/estudiante/<int:est_id>/", redir_estudiante, name="redir_estudiante"),
+    path("redir/inscripcion/<int:insc_id>/", redir_inscripcion, name="redir_inscripcion"),
     path(
-        "redir/inscripcion/<int:insc_id>/", redir_inscripcion, name="redir_inscripcion"
-    ),
-    path(
-    "api/correlatividades-por-materia/",
-    api_correlatividades_por_materia,
-    name="api_correlatividades_por_materia",
+        "api/correlatividades-por-materia/",
+        api_correlatividades_por_materia,
+        name="api_correlatividades_por_materia",
     ),
     # ---------------- Inscripciones -------------------
-    path("inscripciones/carrera/nueva/", InscripcionCarreraCreate.as_view(), name="insc_carrera_new"),
-    path("inscripciones/materia/nueva/", InscripcionMateriaCreate.as_view(), name="insc_materia_new"),
+    path(
+        "inscripciones/carrera/nueva/", InscripcionCarreraCreate.as_view(), name="insc_carrera_new"
+    ),
+    path(
+        "inscripciones/materia/nueva/", InscripcionMateriaCreate.as_view(), name="insc_materia_new"
+    ),
     path("inscripciones/mesa/nueva/", InscripcionMesaCreate.as_view(), name="insc_mesa_new"),
 ]

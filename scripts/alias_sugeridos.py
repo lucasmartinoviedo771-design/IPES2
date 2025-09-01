@@ -1,9 +1,10 @@
 import csv
+import difflib
 import re
 import unicodedata
-import difflib
 from collections import defaultdict
-from academia_core.models import Profesorado, PlanEstudios, EspacioCurricular
+
+from academia_core.models import EspacioCurricular, PlanEstudios, Profesorado
 
 PROF_SLUG = "profesorado-de-educacion-primaria"
 PLAN_RES = "1935/14"

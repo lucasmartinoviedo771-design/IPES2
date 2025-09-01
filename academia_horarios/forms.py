@@ -1,7 +1,8 @@
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import HorarioClase, TimeSlot, Comision, Docente, Turno
+
 from . import services  # tu detector de conflictos
+from .models import Docente, HorarioClase, TimeSlot
 
 DIAS_CHOICES = [
     (1, "Lunes"),
@@ -19,6 +20,7 @@ TURNOS = (
     ("V", "Vespertino"),
     ("S", "Sábado"),
 )
+
 
 class HorarioInlineForm(forms.Form):
     turno = forms.ChoiceField(
@@ -71,7 +73,7 @@ class HorarioInlineForm(forms.Form):
     def clean(self):
         cd = super().clean()
         ts = cd.get("bloque")
-        d  = cd.get("dia")
+        d = cd.get("dia")
         if ts and d and ts.dia_semana != int(d):
             self.add_error("bloque", "El bloque no coincide con el día seleccionado.")
         return cd
@@ -80,11 +82,12 @@ class HorarioInlineForm(forms.Form):
         hc = HorarioClase.objects.create(
             comision=comision,
             timeslot=self.cleaned_data["bloque"],
-            aula=self.cleaned_data.get("aula") or ""
+            aula=self.cleaned_data.get("aula") or "",
         )
         if self.cleaned_data.get("docentes"):
             hc.docentes.set(self.cleaned_data["docentes"])
         return hc
+
 
 class HorarioClaseForm(forms.ModelForm):
     class Meta:
@@ -110,8 +113,10 @@ class HorarioClaseForm(forms.ModelForm):
                 excluir_comision_id=self.instance.comision_id,
             )
             if conflicto:
-                raise ValidationError({
-                    "docentes": f"{d} ya tiene una comisión en ese horario (id {conflicto.comision_id})."
-                })
+                raise ValidationError(
+                    {
+                        "docentes": f"{d} ya tiene una comisión en ese horario (id {conflicto.comision_id})."
+                    }
+                )
 
         return cleaned

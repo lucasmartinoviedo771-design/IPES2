@@ -4,19 +4,19 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 from .models import (
-    Profesorado,
-    PlanEstudios,
-    Estudiante,
-    EstudianteProfesorado,
-    EspacioCurricular,
-    Movimiento,
-    InscripcionEspacio,
+    Condicion,
+    Correlatividad,
     Docente,
     DocenteEspacio,
-    UserProfile,
-    Correlatividad,
+    EspacioCurricular,
+    Estudiante,
+    EstudianteProfesorado,
     Horario,
-    Condicion,
+    InscripcionEspacio,
+    Movimiento,
+    PlanEstudios,
+    Profesorado,
+    UserProfile,
 )
 
 # ===================== Helpers de rol/alcance =====================
@@ -101,9 +101,9 @@ class EspacioAdmin(admin.ModelAdmin):
         profs = _profesorados_permitidos(request)
         if db_field.name == "plan":
             if not request.user.is_superuser and profs.exists():
-                kwargs["queryset"] = (
-                    kwargs.get("queryset") or PlanEstudios.objects
-                ).filter(profesorado__in=profs)
+                kwargs["queryset"] = (kwargs.get("queryset") or PlanEstudios.objects).filter(
+                    profesorado__in=profs
+                )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def plan_en_dos_lineas(self, obj):
@@ -111,9 +111,7 @@ class EspacioAdmin(admin.ModelAdmin):
             return "-"
         linea1 = f"Res. {obj.plan.resolucion}"
         linea2 = obj.plan.nombre or ""
-        return format_html(
-            '{}<br><small style="color:#6b7280;">{}</small>', linea1, linea2
-        )
+        return format_html('{}<br><small style="color:#6b7280;">{}</small>', linea1, linea2)
 
     plan_en_dos_lineas.short_description = "Plan"
     plan_en_dos_lineas.admin_order_field = "plan__resolucion"
@@ -146,11 +144,7 @@ class MovimientoInline(admin.TabularInline):
         return super().get_formset(request, obj, **kwargs)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if (
-            db_field.name == "espacio"
-            and hasattr(request, "_insc_obj")
-            and request._insc_obj
-        ):
+        if db_field.name == "espacio" and hasattr(request, "_insc_obj") and request._insc_obj:
             kwargs["queryset"] = EspacioCurricular.objects.filter(
                 plan=request._insc_obj.plan
             ).order_by("anio", "cuatrimestre", "nombre")
@@ -199,18 +193,10 @@ class EPAdmin(admin.ModelAdmin):
         return False if _solo_lectura(request) else super().has_add_permission(request)
 
     def has_change_permission(self, request, obj=None):
-        return (
-            False
-            if _solo_lectura(request)
-            else super().has_change_permission(request, obj)
-        )
+        return False if _solo_lectura(request) else super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
-        return (
-            False
-            if _solo_lectura(request)
-            else super().has_delete_permission(request, obj)
-        )
+        return False if _solo_lectura(request) else super().has_delete_permission(request, obj)
 
     def save_model(self, request, obj, form, change):
         obj.legajo_estado = obj.calcular_legajo_estado()

@@ -2,10 +2,10 @@ import csv
 import re
 
 from academia_core.models import (
-    Profesorado,
-    PlanEstudios,
-    EspacioCurricular,
     Correlatividad,
+    EspacioCurricular,
+    PlanEstudios,
+    Profesorado,
 )
 
 # === CONFIGURACIÓN ===
@@ -83,9 +83,7 @@ def importar_correlatividades(prof_slug, plan_res, csv_path, sep=";"):
             if not nombre:
                 continue
             try:
-                esp = EspacioCurricular.objects.get(
-                    profesorado=p, plan=plan, nombre__iexact=nombre
-                )
+                esp = EspacioCurricular.objects.get(profesorado=p, plan=plan, nombre__iexact=nombre)
             except EspacioCurricular.DoesNotExist:
                 print(f"Fila {i}: NO existe espacio '{nombre}' en el plan {plan_res}")
                 errors += 1

@@ -1,18 +1,17 @@
 # academia_core/models.py
+import os
 from datetime import timedelta
 from decimal import Decimal
+
 from django.conf import settings
-
-import os
-
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import F, Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.text import slugify
-from django.contrib.auth import get_user_model
 
 
 # --- Choices administrativos ---
@@ -54,9 +53,7 @@ class Profesorado(models.Model):
 
 
 class PlanEstudios(models.Model):
-    profesorado = models.ForeignKey(
-        Profesorado, on_delete=models.CASCADE, related_name="planes"
-    )
+    profesorado = models.ForeignKey(Profesorado, on_delete=models.CASCADE, related_name="planes")
     resolucion = models.CharField(max_length=30)  # ej: 1935/14
     resolucion_slug = models.SlugField(max_length=100, blank=True, null=True)
     nombre = models.CharField(max_length=120, blank=True)  # ej: Plan 2014
@@ -125,9 +122,9 @@ class Estudiante(models.Model):
         """
         from .models import InscripcionEspacio  # import local para evitar ciclos
 
-        return InscripcionEspacio.objects.filter(
-            inscripcion__estudiante=self
-        ).select_related("espacio", "inscripcion", "inscripcion__profesorado")
+        return InscripcionEspacio.objects.filter(inscripcion__estudiante=self).select_related(
+            "espacio", "inscripcion", "inscripcion__profesorado"
+        )
 
     @property
     def espacios_qs(self):
@@ -136,9 +133,7 @@ class Estudiante(models.Model):
         """
         from .models import EspacioCurricular
 
-        return EspacioCurricular.objects.filter(
-            cursadas__inscripcion__estudiante=self
-        ).distinct()
+        return EspacioCurricular.objects.filter(cursadas__inscripcion__estudiante=self).distinct()
 
     def espacios_en_anio(self, anio_academico: int):
         """Materias del alumno en un año académico dado."""
@@ -175,9 +170,7 @@ class EstudianteProfesorado(models.Model):
         ("En curso", "En curso"),
         ("No aplica", "No aplica"),
     ]
-    curso_introductorio = models.CharField(
-        max_length=20, choices=CI_CHOICES, blank=True
-    )
+    curso_introductorio = models.CharField(max_length=20, choices=CI_CHOICES, blank=True)
 
     # Checks simples para cartón
     legajo_entregado = models.BooleanField(default=False)
@@ -227,9 +220,7 @@ class EstudianteProfesorado(models.Model):
     )
 
     # Promedio general (cacheado, por signal o llamado manual)
-    promedio_general = models.DecimalField(
-        max_digits=4, decimal_places=2, null=True, blank=True
-    )
+    promedio_general = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
 
     # Observaciones opcionales
     legajo = models.CharField(max_length=50, blank=True)
@@ -255,9 +246,7 @@ class EstudianteProfesorado(models.Model):
     class Meta:
         # un mismo estudiante no debería tener dos inscripciones al MISMO plan
         constraints = [
-            models.UniqueConstraint(
-                fields=["estudiante", "plan"], name="uniq_estudiante_plan"
-            )
+            models.UniqueConstraint(fields=["estudiante", "plan"], name="uniq_estudiante_plan")
         ]
         ordering = ["estudiante__apellido", "estudiante__nombre", "profesorado__nombre"]
 
@@ -274,11 +263,9 @@ class EstudianteProfesorado(models.Model):
         if prof is None:
             return False
         if hasattr(prof, "es_certificacion"):
-            return bool(getattr(prof, "es_certificacion"))
+            return bool(prof.es_certificacion)
         nombre = (getattr(prof, "nombre", "") or "").lower()
-        return ("certificación docente" in nombre) or (
-            "certificacion docente" in nombre
-        )
+        return ("certificación docente" in nombre) or ("certificacion docente" in nombre)
 
     def curso_intro_aprobado(self) -> bool:
         val = getattr(self, "curso_introductorio", None)
@@ -367,12 +354,7 @@ class EstudianteProfesorado(models.Model):
                     notas.append(Decimal(m.nota_num))
                 elif m.nota_texto:
                     try:
-                        n = Decimal(
-                            int(
-                                "".join(ch for ch in m.nota_texto if ch.isdigit())
-                                or "0"
-                            )
-                        )
+                        n = Decimal(int("".join(ch for ch in m.nota_texto if ch.isdigit()) or "0"))
                         notas.append(n)
                     except Exception:
                         pass
@@ -383,11 +365,9 @@ class EstudianteProfesorado(models.Model):
             self.promedio_general = None
         self.save(update_fields=["promedio_general"])
 
-    
-
 
 try:
-    EstudianteProfesorado.LegajoEstado
+    EstudianteProfesorado.LegajoEstado  # noqa: B018
 except AttributeError:
     EstudianteProfesorado.LegajoEstado = LegajoEstado
     EstudianteProfesorado.CondicionAdmin = CondicionAdmin
@@ -399,9 +379,7 @@ class EspacioCurricular(models.Model):
         ("2", "2º Cuatr."),
         ("A", "Anual"),
     ]
-    plan = models.ForeignKey(
-        PlanEstudios, on_delete=models.CASCADE, related_name="espacios"
-    )
+    plan = models.ForeignKey(PlanEstudios, on_delete=models.CASCADE, related_name="espacios")
     anio = models.CharField(max_length=10)  # ej: "1°", "2°"
     cuatrimestre = models.CharField(max_length=1, choices=CUATRIS)
     nombre = models.CharField(max_length=160)
@@ -471,7 +449,12 @@ class Correlatividad(models.Model):
         # constraints y indexes pueden ir aquí si son necesarios
 
     def __str__(self):
-        return f"[{self.plan.resolucion}] {self.espacio.nombre} / {self.tipo} → {self.requisito}: {req}"
+        req_str = ""
+        if self.requiere_espacio:
+            req_str = self.requiere_espacio.nombre
+        elif self.requiere_todos_hasta_anio:
+            req_str = f"todo hasta {self.requiere_todos_hasta_anio}° año"
+        return f"[{self.plan.resolucion}] {self.espacio.nombre} / {self.tipo} → {self.requisito}: {req_str}"
 
 
 # ===================== Condiciones Académicas (Dinámicas) =====================
@@ -522,17 +505,13 @@ REG_OK_CODIGOS = {"PROMOCION", "APROBADO", "REGULAR"}
 def _tiene_regularizada(
     insc: EstudianteProfesorado, esp: EspacioCurricular, hasta_fecha=None
 ) -> bool:
-    qs = insc.movimientos.filter(
-        espacio=esp, tipo="REG", condicion__codigo__in=REG_OK_CODIGOS
-    )
+    qs = insc.movimientos.filter(espacio=esp, tipo="REG", condicion__codigo__in=REG_OK_CODIGOS)
     if hasta_fecha:
         qs = qs.filter(fecha__lte=hasta_fecha)
     return qs.exists()
 
 
-def _tiene_aprobada(
-    insc: EstudianteProfesorado, esp: EspacioCurricular, hasta_fecha=None
-) -> bool:
+def _tiene_aprobada(insc: EstudianteProfesorado, esp: EspacioCurricular, hasta_fecha=None) -> bool:
     qs1 = insc.movimientos.filter(
         espacio=esp, tipo="REG", condicion__codigo__in={"PROMOCION", "APROBADO"}
     )
@@ -563,10 +542,7 @@ def _cumple_correlativas(
         else:
             reqs = list(
                 EspacioCurricular.objects.filter(plan=esp.plan).filter(
-                    anio__in=[
-                        f"{i}°"
-                        for i in range(1, (r.requiere_todos_hasta_anio or 0) + 1)
-                    ]
+                    anio__in=[f"{i}°" for i in range(1, (r.requiere_todos_hasta_anio or 0) + 1)]
                 )
             )
         for req in reqs:
@@ -614,9 +590,7 @@ class Movimiento(models.Model):
         blank=True,
     )
 
-    nota_num = models.DecimalField(
-        max_digits=4, decimal_places=1, null=True, blank=True
-    )
+    nota_num = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     nota_texto = models.CharField(max_length=40, blank=True)
 
     folio = models.CharField(max_length=20, blank=True)
@@ -633,8 +607,7 @@ class Movimiento(models.Model):
         constraints = [
             models.CheckConstraint(
                 name="nota_num_rango_valido",
-                check=Q(nota_num__isnull=True)
-                | (Q(nota_num__gte=0) & Q(nota_num__lte=10)),
+                check=Q(nota_num__isnull=True) | (Q(nota_num__gte=0) & Q(nota_num__lte=10)),
             ),
         ]
 
@@ -672,10 +645,7 @@ class Movimiento(models.Model):
                     "No corresponde 'Libre' si el estudiante ya obtuvo Regular en este espacio."
                 )
 
-            if (
-                hasattr(self.inscripcion, "es_condicional")
-                and self.inscripcion.es_condicional
-            ):
+            if hasattr(self.inscripcion, "es_condicional") and self.inscripcion.es_condicional:
                 if cond_codigo in {"PROMOCION", "APROBADO"}:
                     raise ValidationError(
                         "Estudiante condicional: no puede quedar Aprobado/Promoción por cursada."
@@ -695,21 +665,14 @@ class Movimiento(models.Model):
                     if self.nota_num is None:
                         raise ValidationError("Debe cargar la nota o marcar Ausente.")
                     if self.nota_num < self.NOTA_MINIMA:
-                        raise ValidationError(
-                            "Nota de Final por regularidad debe ser >= 6."
-                        )
+                        raise ValidationError("Nota de Final por regularidad debe ser >= 6.")
                     if self.fecha and not _tiene_regularidad_vigente(
                         self.inscripcion, self.espacio, self.fecha
                     ):
-                        raise ValidationError(
-                            "La regularidad no está vigente (2 años)."
-                        )
+                        raise ValidationError("La regularidad no está vigente (2 años).")
 
             if cond_codigo == "LIBRE":
-                if (
-                    hasattr(self.espacio, "libre_habilitado")
-                    and not self.espacio.libre_habilitado
-                ):
+                if hasattr(self.espacio, "libre_habilitado") and not self.espacio.libre_habilitado:
                     raise ValidationError("Este espacio no habilita condición Libre.")
                 if _tiene_aprobada(self.inscripcion, self.espacio):
                     raise ValidationError(
@@ -727,18 +690,14 @@ class Movimiento(models.Model):
                     self.inscripcion, self.espacio, "RENDIR", fecha=self.fecha
                 )
                 if not ok:
-                    msgs = [
-                        f"{r.requisito.lower()} de '{req.nombre}'" for r, req in faltan
-                    ]
+                    msgs = [f"{r.requisito.lower()} de '{req.nombre}'" for r, req in faltan]
                     raise ValidationError(
                         f"No cumple correlatividades para RENDIR: faltan {', '.join(msgs)}."
                     )
 
             prev = list(self._intentos_final_previos())
             if any((m.nota_num or 0) >= 6 and not m.ausente for m in prev):
-                raise ValidationError(
-                    "El espacio ya fue aprobado por final anteriormente."
-                )
+                raise ValidationError("El espacio ya fue aprobado por final anteriormente.")
             if len(prev) >= 3:
                 raise ValidationError(
                     "Alcanzó las tres posibilidades de final: debe recursar el espacio."
@@ -802,9 +761,7 @@ class InscripcionEspacio(models.Model):
         ]
         # unique_together = [("inscripcion", "espacio", "anio_academico")] # Replaced by UniqueConstraint
         indexes = [
-            models.Index(
-                fields=["inscripcion", "anio_academico"], name="idx_cursada_insc_anio"
-            ),
+            models.Index(fields=["inscripcion", "anio_academico"], name="idx_cursada_insc_anio"),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -814,9 +771,7 @@ class InscripcionEspacio(models.Model):
             # EN_CURSO ⇒ fecha_baja debe ser NULL
             models.CheckConstraint(
                 name="cursada_fecha_null_si_en_curso",
-                check=(
-                    ~Q(estado=EstadoInscripcion.EN_CURSO) | Q(fecha_baja__isnull=True)
-                ),
+                check=(~Q(estado=EstadoInscripcion.EN_CURSO) | Q(fecha_baja__isnull=True)),
             ),
             # BAJA ⇒ fecha_baja obligatoria
             models.CheckConstraint(
@@ -829,8 +784,7 @@ class InscripcionEspacio(models.Model):
             # fecha_baja ≥ fecha_inscripcion (o NULL)
             models.CheckConstraint(
                 name="cursada_fecha_baja_ge_inscripcion",
-                check=Q(fecha_baja__gte=F("fecha_inscripcion"))
-                | Q(fecha_baja__isnull=True),
+                check=Q(fecha_baja__gte=F("fecha_inscripcion")) | Q(fecha_baja__isnull=True),
             ),
         ]
 
@@ -847,9 +801,7 @@ class InscripcionEspacio(models.Model):
         if self.estado == EstadoInscripcion.BAJA and not self.fecha_baja:
             raise ValidationError("Debe indicar 'fecha_baja' cuando el estado es Baja.")
         if self.estado == EstadoInscripcion.EN_CURSO and self.fecha_baja:
-            raise ValidationError(
-                "No debe tener 'fecha_baja' si la cursada está En curso."
-            )
+            raise ValidationError("No debe tener 'fecha_baja' si la cursada está En curso.")
 
         # correlatividades según fecha_inscripcion
         try:
@@ -896,13 +848,11 @@ def _recalc_promedio_on_mov(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=EstudianteProfesorado)
-def _update_legajo_estado(sender, instance, **kwargs):
+def _update_legajo_estado(_sender, instance, **kwargs):
     try:
         estado = instance.calcular_legajo_estado()
         if estado != instance.legajo_estado:
-            EstudianteProfesorado.objects.filter(pk=instance.pk).update(
-                legajo_estado=estado
-            )
+            EstudianteProfesorado.objects.filter(pk=instance.pk).update(legajo_estado=estado)
     except Exception:
         pass
 
@@ -924,9 +874,7 @@ class Docente(models.Model):
 
 
 class DocenteEspacio(models.Model):
-    docente = models.ForeignKey(
-        Docente, on_delete=models.CASCADE, related_name="asignaciones"
-    )
+    docente = models.ForeignKey(Docente, on_delete=models.CASCADE, related_name="asignaciones")
     espacio = models.ForeignKey(
         EspacioCurricular,
         on_delete=models.CASCADE,
@@ -984,7 +932,7 @@ class UserProfile(models.Model):
 
 
 @receiver(post_save, sender=User)
-def _crear_perfil_usuario(sender, instance, created, **kwargs):
+def _crear_perfil_usuario(_sender, instance, created, **kwargs):
     if created:
         UserProfile.objects.get_or_create(user=instance)
 
@@ -1094,9 +1042,10 @@ class CorePerms(models.Model):
     Modelo NO gestionado, solo para colgar permisos custom.
     No crea tablas; sirve para que existan los Permission en la BD.
     """
+
     class Meta:
-        managed = False          # ← CAMBIO CLAVE (en lugar de proxy=True)
-        default_permissions = () # no crear add/change/delete/view
+        managed = False  # ← CAMBIO CLAVE (en lugar de proxy=True)
+        default_permissions = ()  # no crear add/change/delete/view
         app_label = "academia_core"
         permissions = [
             ("open_close_windows", "Puede abrir/cerrar ventanas de inscripción"),
@@ -1111,12 +1060,13 @@ class CorePerms(models.Model):
             ("change_inscripcioncarrera", "Puede editar inscripciones a carrera"),
         ]
 
+
 class RequisitosIngreso(models.Model):
     # IMPORTANTE: ajustá el import / referencia ↓ a TU modelo de inscripción
     inscripcion = models.OneToOneField(
         "academia_core.EstudianteProfesorado",  # cambia TU_APP al label real de esa app
         on_delete=models.CASCADE,
-        related_name="requisitos"
+        related_name="requisitos",
     )
     # Generales
     req_dni = models.BooleanField(default=False)
@@ -1140,24 +1090,35 @@ class RequisitosIngreso(models.Model):
     def __str__(self):
         return f"Requisitos de {self.inscripcion_id}"
 
+
 class Carrera(models.Model):
     nombre = models.CharField(max_length=150)
-    def __str__(self): return self.nombre
+
+    def __str__(self):
+        return self.nombre
+
 
 class Materia(models.Model):
     nombre = models.CharField(max_length=150)
     carrera = models.ForeignKey(Carrera, on_delete=models.CASCADE, related_name="materias")
     anio = models.PositiveSmallIntegerField(default=1)
-    def __str__(self): return f"{self.nombre} ({self.carrera})"
+
+    def __str__(self):
+        return f"{self.nombre} ({self.carrera})"
+
 
 class Mesa(models.Model):
     materia = models.ForeignKey(Materia, on_delete=models.CASCADE, related_name="mesas")
     fecha = models.DateField()
     turno = models.CharField(max_length=20, blank=True)  # 1ra/2da, Mañana/Tarde, etc.
-    def __str__(self): return f"Mesa {self.materia} - {self.fecha} {self.turno}".strip()
+
+    def __str__(self):
+        return f"Mesa {self.materia} - {self.fecha} {self.turno}".strip()
+
 
 # ===== Inscripciones =====
-ESTADOS = (("pendiente","Pendiente"), ("confirmada","Confirmada"), ("baja","Baja"))
+ESTADOS = (("pendiente", "Pendiente"), ("confirmada", "Confirmada"), ("baja", "Baja"))
+
 
 class InscripcionCarrera(models.Model):
     estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE)
@@ -1166,7 +1127,10 @@ class InscripcionCarrera(models.Model):
     turno = models.CharField(max_length=20, blank=True)
     fecha_inscripcion = models.DateField(auto_now_add=True)
     estado = models.CharField(max_length=12, choices=ESTADOS, default="pendiente")
-    def __str__(self): return f"{self.estudiante} → {self.carrera} ({self.cohorte})"
+
+    def __str__(self):
+        return f"{self.estudiante} → {self.carrera} ({self.cohorte})"
+
 
 class InscripcionMateria(models.Model):
     estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE)
@@ -1174,16 +1138,22 @@ class InscripcionMateria(models.Model):
     comision = models.CharField(max_length=50, blank=True)
     fecha_inscripcion = models.DateField(auto_now_add=True)
     estado = models.CharField(max_length=12, choices=ESTADOS, default="pendiente")
-    def __str__(self): return f"{self.estudiante} → {self.materia}"
+
+    def __str__(self):
+        return f"{self.estudiante} → {self.materia}"
+
 
 class InscripcionMesa(models.Model):
     estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE)
     mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT)
     condicion = models.CharField(max_length=20, blank=True)  # regular/libre/etc.
-    llamada = models.CharField(max_length=20, blank=True)    # 1ra/2da
+    llamada = models.CharField(max_length=20, blank=True)  # 1ra/2da
     fecha_inscripcion = models.DateField(auto_now_add=True)
     estado = models.CharField(max_length=12, choices=ESTADOS, default="pendiente")
-    def __str__(self): return f"{self.estudiante} → {self.mesa}"
+
+    def __str__(self):
+        return f"{self.estudiante} → {self.mesa}"
+
 
 class Aula(models.Model):
     nombre = models.CharField(max_length=100, unique=True)

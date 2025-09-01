@@ -1,29 +1,25 @@
-from django.test import TestCase, Client
-from django.urls import reverse
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
+from django.test import Client, TestCase
+from django.urls import reverse
 
 from academia_core.models import (
-    Estudiante,
-    Profesorado,
-    PlanEstudios,
-    EstudianteProfesorado,
-    EspacioCurricular,
-    Movimiento,
     Condicion,
+    EspacioCurricular,
+    Estudiante,
+    EstudianteProfesorado,
+    Movimiento,
+    PlanEstudios,
+    Profesorado,
 )
 
 
 class EstudianteProfesoradoModelTest(TestCase):
     def setUp(self):
-        self.estudiante = Estudiante.objects.create(
-            dni="12345678", apellido="Perez", nombre="Juan"
-        )
+        self.estudiante = Estudiante.objects.create(dni="12345678", apellido="Perez", nombre="Juan")
         self.profesorado1 = Profesorado.objects.create(nombre="Profesorado de Historia")
-        self.profesorado2 = Profesorado.objects.create(
-            nombre="Profesorado de Matemática"
-        )
+        self.profesorado2 = Profesorado.objects.create(nombre="Profesorado de Matemática")
         self.plan1_prof1 = PlanEstudios.objects.create(
             profesorado=self.profesorado1, resolucion="Res. 001/2020"
         )
@@ -94,9 +90,7 @@ class EstudianteProfesoradoModelTest(TestCase):
                 cohorte=2023,
             )
         except IntegrityError:
-            self.fail(
-                "No debería haber fallado al crear inscripción con diferente plan."
-            )
+            self.fail("No debería haber fallado al crear inscripción con diferente plan.")
 
 
 class EspacioCurricularModelTest(TestCase):
@@ -132,9 +126,7 @@ class EspacioCurricularModelTest(TestCase):
 
 class MovimientoModelTest(TestCase):
     def setUp(self):
-        self.estudiante = Estudiante.objects.create(
-            dni="111", apellido="Doe", nombre="John"
-        )
+        self.estudiante = Estudiante.objects.create(dni="111", apellido="Doe", nombre="John")
         self.profesorado = Profesorado.objects.create(nombre="Profesorado de Prueba")
         self.plan = PlanEstudios.objects.create(
             profesorado=self.profesorado, resolucion="Res. Test"

@@ -1,27 +1,26 @@
 # academia_core/views.py
-from datetime import date
-from collections import defaultdict
 import io
 import os
+from collections import defaultdict
+from datetime import date
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden
-from django.shortcuts import get_object_or_404, render, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import get_template
 from django.utils.text import slugify
-from django.db.models import Q
-
 from xhtml2pdf import pisa
 
 from .models import (
-    Profesorado,
-    PlanEstudios,
+    DocenteEspacio,
+    EspacioCurricular,
     Estudiante,
     EstudianteProfesorado,
-    EspacioCurricular,
     Movimiento,
-    DocenteEspacio,
+    PlanEstudios,
+    Profesorado,
 )
 
 
@@ -113,9 +112,7 @@ def _build_carton_ctx_base(prof, plan, dni: str):
     """
     # Estudiante e inscripción
     estudiante = get_object_or_404(Estudiante, dni=dni)
-    insc = get_object_or_404(
-        EstudianteProfesorado, estudiante=estudiante, profesorado=prof
-    )
+    insc = get_object_or_404(EstudianteProfesorado, estudiante=estudiante, profesorado=prof)
 
     # Espacios del plan
     espacios = EspacioCurricular.objects.filter(profesorado=prof, plan=plan).order_by(
@@ -135,9 +132,7 @@ def _build_carton_ctx_base(prof, plan, dni: str):
         movs = por_espacio.get(e.id, [])
 
         # Orden cronológico asc; si empatan fecha: REG antes que FIN; luego id asc.
-        movs.sort(
-            key=lambda m: (m.fecha or date.min, 0 if m.tipo == "REG" else 1, m.id)
-        )
+        movs.sort(key=lambda m: (m.fecha or date.min, 0 if m.tipo == "REG" else 1, m.id))
 
         filas = []
         for m in movs:
@@ -278,11 +273,7 @@ def _es_aprobada(m):
     if m.tipo == "FIN":
         if m.condicion == "Equivalencia":
             return True
-        if (
-            m.condicion in ("Regular", "Libre")
-            and m.nota_num is not None
-            and m.nota_num >= 6
-        ):
+        if m.condicion in ("Regular", "Libre") and m.nota_num is not None and m.nota_num >= 6:
             return True
     # Aprobado/Promoción por REG con nota >=6 (numérica o en texto)
     if m.tipo == "REG" and m.condicion in ("Promoción", "Aprobado"):
@@ -316,202 +307,4 @@ def home_router(request):
     return redirect("login")
 
 
-# ---------- Vista "Mi Cursada" (solo alumno) ----------
-@login_required
-def alumno_home(request):
-    perfil = getattr(request.user, "perfil", None)
-    if not perfil or perfil.rol != "ESTUDIANTE" or not perfil.estudiante:
-        return HttpResponseForbidden("Solo para estudiantes.")
 
-    est = perfil.estudiante
-    inscs = EstudianteProfesorado.objects.filter(estudiante=est).select_related(
-        "profesorado"
-    )
-
-    items = []
-    for ins in inscs:
-        plan = (
-            PlanEstudios.objects.filter(
-                profesorado=ins.profesorado, vigente=True
-            ).first()
-            or PlanEstudios.objects.filter(profesorado=ins.profesorado).first()
-        )
-
-        aprobadas = 0
-        desaprobadas = 0
-        pendientes = 0
-        pendientes_list = []
-        todas = []
-
-        if plan:
-            # Slugs para templates (aunque no haya campos en DB)
-            ins.profesorado.slug = slugify(ins.profesorado.nombre)
-            plan.resolucion_slug = (plan.resolucion or "").replace("/", "-")
-
-            espacios = EspacioCurricular.objects.filter(
-                profesorado=ins.profesorado, plan=plan
-            ).order_by("anio", "cuatrimestre", "nombre")
-
-            for e in espacios:
-                movs = list(ins.movimientos.filter(espacio=e).order_by("fecha", "id"))
-                last = movs[-1] if movs else None
-
-                # Estado por materia
-                if any(_es_aprobada(m) for m in movs):
-                    estado = "Aprobada"
-                elif last and _es_desaprobada(last):
-                    estado = "Desaprobada"
-                else:
-                    estado = "Pendiente"
-
-                # Texto del último movimiento (si hubo)
-                ult = ""
-                if last:
-                    ult = f"{last.tipo} • {last.condicion} • {_fmt_nota(last)} • {_fmt_fecha(last.fecha)}".strip(
-                        " •"
-                    )
-
-                # Contadores
-                if estado == "Aprobada":
-                    aprobadas += 1
-                elif estado == "Desaprobada":
-                    desaprobadas += 1
-                else:
-                    pendientes += 1
-                    pendientes_list.append(
-                        {
-                            "anio": e.anio,
-                            "cuatri": e.cuatrimestre,
-                            "espacio": e.nombre,
-                            "ultimo": ult or "—",
-                        }
-                    )
-
-                # Lista completa (para la tabla principal)
-                todas.append(
-                    {
-                        "anio": e.anio,
-                        "cuatri": e.cuatrimestre,
-                        "espacio": e.nombre,
-                        "estado": estado,
-                        "ultimo": ult or "—",
-                    }
-                )
-
-        items.append(
-            {
-                "ins": ins,
-                "plan": plan,
-                "cuentas": {
-                    "aprobadas": aprobadas,
-                    "desaprobadas": desaprobadas,
-                    "pendientes": pendientes,
-                },
-                "pendientes": pendientes_list,
-                "todas": todas,
-            }
-        )
-
-    return render(request, "alumno_home.html", {"estudiante": est, "items": items})
-
-
-# ---------- Panel DOCENTE ----------
-
-
-@login_required
-def docente_espacio_detalle(request, espacio_id: int):
-    perfil = getattr(request.user, "perfil", None)
-    if not perfil or perfil.rol != "DOCENTE" or not perfil.docente:
-        return HttpResponseForbidden("Solo para docentes.")
-
-    # el docente debe tener asignado este espacio
-    de = get_object_or_404(
-        DocenteEspacio, docente=perfil.docente, espacio_id=espacio_id
-    )
-    esp = de.espacio
-    prof = esp.profesorado
-
-    q = (request.GET.get("q") or "").strip()
-
-    # movimientos del espacio (trae estudiante/inscripción)
-    movs_qs = (
-        Movimiento.objects.filter(espacio=esp)
-        .select_related("inscripcion__estudiante")
-        .order_by("inscripcion_id", "fecha", "id")
-    )
-
-    if q:
-        movs_qs = movs_qs.filter(
-            Q(inscripcion__estudiante__apellido__icontains=q)
-            | Q(inscripcion__estudiante__nombre__icontains=q)
-            | Q(inscripcion__estudiante__dni__icontains=q)
-        )
-
-    # agrupar por inscripción (alumno)
-    alumnos = []
-    cur_insc = None
-    cur_movs = []
-    for m in movs_qs:
-        if cur_insc is None:
-            cur_insc = m.inscripcion
-        if m.inscripcion_id != cur_insc.id:
-            alumnos.append((cur_insc, cur_movs))
-            cur_insc = m.inscripcion
-            cur_movs = []
-        cur_movs.append(m)
-    if cur_insc is not None:
-        alumnos.append((cur_insc, cur_movs))
-
-    # calcular estado por alumno en este espacio
-    filas = []
-    aprob, desa, pend = 0, 0, 0
-    for insc, movs in alumnos:
-        last = movs[-1] if movs else None
-        if any(_es_aprobada(m) for m in movs):
-            estado = "Aprobada"
-            aprob += 1
-        elif last and _es_desaprobada(last):
-            estado = "Desaprobada"
-            desa += 1
-        else:
-            estado = "Pendiente"
-            pend += 1
-
-        ult = ""
-        if last:
-            ult = f"{last.tipo} • {last.condicion} • {_fmt_nota(last)} • {_fmt_fecha(last.fecha)}".strip(
-                " •"
-            )
-
-        e = insc.estudiante
-        filas.append(
-            {
-                "apellido": e.apellido,
-                "nombre": e.nombre,
-                "dni": e.dni,
-                "cohorte": insc.cohorte or "—",
-                "estado": estado,
-                "ultimo": ult or "—",
-            }
-        )
-
-    # ordenar por estado (pendientes primero), luego apellido
-    order_key = {"Pendiente": 0, "Desaprobada": 1, "Aprobada": 2}
-    filas.sort(
-        key=lambda r: (order_key.get(r["estado"], 9), r["apellido"], r["nombre"])
-    )
-
-    ctx = {
-        "docente": perfil.docente,
-        "espacio": esp,
-        "profesorado": prof,
-        "resumen": {
-            "aprobadas": aprob,
-            "desaprobadas": desa,
-            "pendientes": pend,
-            "total": len(filas),
-        },
-        "filas": filas,
-        "q": q,
-    }
-    return render(request, "docente_espacio_detalle.html", ctx)
