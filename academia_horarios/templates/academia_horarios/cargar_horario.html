@@ -18,17 +18,27 @@
         <select id="id_carrera" name="carrera" class="select">
           <option value="">---------</option>
           {% for c in carreras %}
-          <option value="{{ c.id }}">{{ c.nombre }}</option>
+          <option value="{{ c.id }}" {% if c.id|stringformat:"s" == selected_carrera_id %}selected{% endif %}>{{ c.nombre }}</option>
           {% endfor %}
         </select>
       </div>
       <div>
         <label for="id_plan">Plan</label>
-        <select id="id_plan" name="plan" class="select" disabled></select>
+        <select id="id_plan" name="plan" class="select" disabled>
+            <option value="">---------</option>
+            {% if selected_plan_id %}
+            <option value="{{ selected_plan_id }}" selected></option>
+            {% endif %}
+        </select>
       </div>
       <div>
         <label for="id_materia">Materia</label>
-        <select id="id_materia" name="materia" class="select" disabled></select>
+        <select id="id_materia" name="materia" class="select" disabled>
+            <option value="">---------</option>
+            {% if selected_materia_id %}
+            <option value="{{ selected_materia_id }}" selected></option>
+            {% endif %}
+        </select>
       </div>
 
       <!-- Selector de Turno -->
@@ -36,14 +46,20 @@
         <label for="id_turno">Turno</label>
         <select id="id_turno" name="turno" class="select">
             <option value="">---------</option>
-            <!-- Se llena por JS -->
+            <!-- Se completa SIEMPRE por JS -->
         </select>
       </div>
 
       <div class="grid-span-2" id="grid-auto-anchor">
-        <h2 style="margin:1rem 0 .5rem">Grilla de Horarios</h2>
-        <div id="ah-grid"></div>
-      </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin:1rem 0 .5rem">Grilla de Horarios</h2>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div id="block-counter" style="font-size:.9rem; color:#6b7280;"></div>
+              <div id="save-indicator" style="min-height:1.2rem; font-size:.9rem; color:#6b7280;"></div>
+            </div>
+          </div>
+          <div id="ah-grid"></div>
+        </div>
     </div>
 
     <div class="actions">
@@ -114,6 +130,18 @@
         });
     }
 })();
+</script>
+
+<script>
+    // Valores iniciales pasados desde Django
+    const initialSelectedCarreraId = "{{ selected_carrera_id|default:'' }}";
+    const initialSelectedPlanId = "{{ selected_plan_id|default:'' }}";
+    const initialSelectedMateriaId = "{{ selected_materia_id|default:'' }}";
+    const initialSelectedTurnoValue = "{{ selected_turno_value|default:'' }}";
+
+    // Endpoints para la grilla de horarios
+    window.API_GRID = "{% url 'ui:api_horario_grid' %}";
+    window.API_TOGGLE = "{% url 'ui:api_horario_toggle' %}";
 </script>
 
 {# Carga de la grilla de horarios #}

@@ -140,11 +140,19 @@
   function seedTurnoOptions() {
     const sel = document.getElementById("id_turno");
     if (!sel) return null;
-    if (sel.options.length > 1) return sel;
-    sel.innerHTML = "";
-    const opt0 = document.createElement("option");
-    opt0.value = ""; opt0.textContent = "--------"; sel.appendChild(opt0);
-    for (const [key, cfg] of Object.entries(GRILLAS)) { const opt = document.createElement("option"); opt.value = key; opt.textContent = cfg.label; sel.appendChild(opt); }
+
+    // ¿Está realmente poblado? (todas las opciones con texto/label)
+    const hasRealOptions = Array.from(sel.options)
+      .some(o => o.value && o.textContent && o.textContent.trim() !== "");
+
+    if (!hasRealOptions) { // Replaced the old check
+      sel.innerHTML = "";
+      const opt0 = new Option("---------", ""); // Use new Option constructor
+      sel.add(opt0);
+      for (const [key, cfg] of Object.entries(GRILLAS)) {
+        sel.add(new Option(cfg.label, key)); // Use new Option constructor
+      }
+    }
     return sel;
   }
 
@@ -156,13 +164,50 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    const selTurno = seedTurnoOptions();
-    if (!selTurno) return;
-    const key0 = turnoKeyFromSelectValue(selTurno.value);
-    if (key0) renderGrid(key0);
+    const selCarrera = document.getElementById('id_carrera');
+    const selPlan = document.getElementById('id_plan');
+    const selMateria = document.getElementById('id_materia');
+    const selTurno = document.getElementById('id_turno');
+
+    // Set initial values from Django context
+    if (selCarrera && typeof initialSelectedCarreraId !== 'undefined' && initialSelectedCarreraId) {
+        selCarrera.value = initialSelectedCarreraId;
+    }
+    if (selPlan && typeof initialSelectedPlanId !== 'undefined' && initialSelectedPlanId) {
+        selPlan.value = initialSelectedPlanId;
+    }
+    if (selMateria && typeof initialSelectedMateriaId !== 'undefined' && initialSelectedMateriaId) {
+        selMateria.value = initialSelectedMateriaId;
+    }
+    if (selTurno && typeof initialSelectedTurnoValue !== 'undefined' && initialSelectedTurnoValue) {
+        selTurno.value = initialSelectedTurnoValue;
+    }
+
+    // The cascade (updatePlanes/updateMaterias) is handled by the first script block
+    // in cargar_horario.html, which listens to 'change' events.
+    // We just need to trigger a 'change' event on selCarrera if it has an initial value.
+    if (selCarrera && selCarrera.value) {
+        selCarrera.dispatchEvent(new Event('change'));
+    }
+
+
+    // Seed turno options (now more robust)
+    seedTurnoOptions();
+
+    // Render initial grid if a turno is selected
+    if (selTurno && selTurno.value) {
+        const key0 = turnoKeyFromSelectValue(selTurno.value);
+        if (key0) renderGrid(key0);
+    }
+
     selTurno.addEventListener("change", (e) => {
       const key = turnoKeyFromSelectValue(e.target.value);
-      if (!key) { const {tbody} = ensureInfoAndTable(); clearNode(tbody); currentSlots = []; maxSelectable = 0; document.getElementById("ah-max").textContent = "0"; updateCount(); return; }
+      if (!key) {
+        const {tbody} = ensureInfoAndTable();
+        clearNode(tbody); currentSlots = []; maxSelectable = 0;
+        document.getElementById("ah-max").textContent = "0"; updateCount();
+        return;
+      }
       renderGrid(key);
     });
   });

@@ -137,22 +137,50 @@ from .models import TurnoModel
 
 @transaction.atomic
 def cargar_horario(request):
-    # La lógica POST se manejará vía API
-    if request.method == 'POST':
-        # Aquí se guardaría la Catedra y sus CatedraHorario
-        # Por ahora, redirigimos o mostramos un mensaje.
-        messages.info(request, "El guardado se implementará en el siguiente paso.")
-        return redirect('cargar_horario')
+    selected_carrera_id = None
+    selected_plan_id = None
+    selected_materia_id = None
+    selected_turno_value = None # This will hold the 'value' from the select
 
-    # GET: contexto para combos iniciales
+    if request.method == 'POST':
+        selected_carrera_id = request.POST.get('carrera')
+        selected_plan_id    = request.POST.get('plan')
+        selected_materia_id = request.POST.get('materia')
+        selected_turno_value= request.POST.get('turno')
+
+        # Si no quieres el cartel, borra esta línea:
+        messages.success(request, "Operación de guardado simulada exitosamente. (El guardado real se implementará luego)")
+
+        # PRG: redirigimos con el estado para repoblar los selects por GET
+        qs = (
+            f"?carrera={selected_carrera_id or ''}"
+            f"&plan={selected_plan_id or ''}"
+            f"&materia={selected_materia_id or ''}"
+            f"&turno={selected_turno_value or ''}"
+        )
+        return redirect(f"{request.path}{qs}")
+
+    # Context common to both GET and POST rendering
     carreras = Profesorado.objects.all().order_by('nombre')
     aulas = Aula.objects.all().order_by('nombre')
-    turnos = TurnoModel.objects.all().order_by('id') # Usamos el nuevo modelo
 
-    return render(request, 'academia_horarios/cargar_horario.html', {
+    # If it's a GET request, or after a POST, try to get initial values from GET params
+    if request.method == 'GET':
+        selected_carrera_id = request.GET.get('carrera')
+        selected_plan_id = request.GET.get('plan')
+        selected_materia_id = request.GET.get('materia')
+        selected_turno_value = request.GET.get('turno')
+
+    ctx = {
         'carreras': carreras,
         'aulas': aulas,
-    })
+        'selected_carrera_id': selected_carrera_id,
+        'selected_plan_id': selected_plan_id,
+        'selected_materia_id': selected_materia_id,
+        'selected_turno_value': selected_turno_value, # Pass this to the template
+    }
+
+    return render(request, 'academia_horarios/cargar_horario.html', ctx)
 
 # New abrir_paralela view
 @transaction.atomic

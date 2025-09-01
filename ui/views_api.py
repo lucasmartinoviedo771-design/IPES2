@@ -1,6 +1,8 @@
 import logging
 from django.http import JsonResponse
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
+from django.utils import timezone
+import json
 from django.db.models import Value, F
 from django.db.models.functions import Concat
 
@@ -103,3 +105,98 @@ def api_horarios_ocupados(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({"ocupados": ocupados})
+
+
+# ------------------------------
+# Helpers
+# ------------------------------
+
+def _combo_key(carrera, plan, materia, turno):
+    # clave única de la cátedra (puedes sumar comision si luego lo agregas)
+    return f"{carrera}:{plan}:{materia}:{turno}"
+
+def _get_drafts_store(request):
+    # espacio en sesión: { key -> {"slots": set([(d,h), ...]), "version": int, "updated": iso} }
+    return request.session.setdefault("horario_drafts", {})
+
+def _parse_slot_from_request(data):
+    # d: 1..6 (lun..sab), hhmm: "07:45"
+    try:
+        d = int(data.get("day"))
+        hhmm = str(data.get("hhmm"))
+    except Exception:
+        d, hhmm = None, None
+    return d, hhmm
+
+# ------------------------------
+# GET: grilla guardada para la cátedra
+# ------------------------------
+@require_http_methods(["GET"])
+def api_horario_grid(request):
+    carrera = request.GET.get("carrera", "")
+    plan    = request.GET.get("plan", "")
+    materia = request.GET.get("materia", "")
+    turno   = request.GET.get("turno", "")
+
+    key = _combo_key(carrera, plan, materia, turno)
+    drafts = _get_drafts_store(request)
+    entry = drafts.get(key, {"slots": [], "version": 0, "updated": None})
+
+    # serializamos como lista de objetos {d: int, hhmm: "07:45"}
+    slots = [{"d": d, "hhmm": hh} for (d, hh) in entry.get("slots", [])]
+
+    return JsonResponse({
+        "ok": True,
+        "key": key,
+        "slots": slots,
+        "count": len(slots),
+        "version": entry.get("version", 0),
+        "updated": entry.get("updated"),
+    })
+
+# ------------------------------
+# POST: toggle de un bloque (autosave)
+# ------------------------------
+@require_http_methods(["POST"])
+def api_horario_toggle(request):
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "JSON inválido"}, status=400)
+
+    carrera = data.get("carrera", "")
+    plan    = data.get("plan", "")
+    materia = data.get("materia", "")
+    turno   = data.get("turno", "")
+    selected = bool(data.get("selected", True))
+    day, hhmm = _parse_slot_from_request(data)
+
+    if not (carrera and plan and materia and turno and day and hhmm):
+        return JsonResponse({"ok": False, "error": "Parámetros incompletos"}, status=400)
+
+    key = _combo_key(carrera, plan, materia, turno)
+    drafts = _get_drafts_store(request)
+
+    entry = drafts.setdefault(key, {"slots": set(), "version": 0, "updated": None})
+    # como la sesión no es json, guardamos set como lista para persistir
+    slots = set(tuple(i) for i in entry.get("slots") or [])
+    tup = (day, hhmm)
+
+    if selected:
+        slots.add(tup)
+    else:
+        slots.discard(tup)
+
+    entry["slots"] = list(slots)
+    entry["version"] = int(entry.get("version", 0)) + 1
+    entry["updated"] = timezone.now().isoformat(timespec="seconds")
+    drafts[key] = entry
+    request.session.modified = True
+
+    return JsonResponse({
+        "ok": True,
+        "selected": selected,
+        "count": len(slots),
+        "version": entry["version"],
+        "updated": entry["updated"],
+    })

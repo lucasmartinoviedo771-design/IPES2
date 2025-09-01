@@ -1,4 +1,7 @@
 from django.urls import path
+
+app_name = 'academia_horarios'
+
 from .views import OfertaView, comision_detail, HorarioDeleteView, timeslots_api, cargar_horario, abrir_paralela
 
 urlpatterns = [
