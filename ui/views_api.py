@@ -65,10 +65,19 @@ def api_docentes(request):
 
 
 
-@require_GET
 def api_turnos(request):
-    turnos = TurnoModel.objects.all().order_by('id').values('id', 'slug', 'nombre')
-    return JsonResponse({'results': list(turnos)})
+    """
+    Devuelve los turnos válidos para armar horarios.
+    """
+    data = {
+        "turnos": [
+            {"value": "manana",    "label": "Mañana"},
+            {"value": "tarde",     "label": "Tarde"},
+            {"value": "vespertino","label": "Vespertino"},
+            {"value": "sabado",    "label": "Sábado (Mañana)"},
+        ]
+    }
+    return JsonResponse(data)
 
 
 @require_GET

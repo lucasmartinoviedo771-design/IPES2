@@ -1,217 +1,169 @@
+/* ui/static/ui/js/armar_horarios.js
+   Arma la grilla de horarios y aplica todos los estilos visuales directamente
+   para evitar conflictos con hojas de estilo externas.
+*/
 (() => {
-  // ========= helpers =========
-  const $ = (sel, ctx = document) => ctx.querySelector(sel);
-  const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
-  const on = (el, ev, cb) => el && el.addEventListener(ev, cb);
+  // --- Definición de Estilos --- (Aplicados directamente a los elementos)
+  const styleBase = `height: 46px; border-radius: 12px; text-align: center; vertical-align: middle; padding: 0; transition: background .12s ease, border-color .12s ease;`;
+  const styleClickable = `background: #F7F4EE; border: 1px solid #E6E2D8; cursor: pointer;`;
+  const styleBreak = `background: #F4F1E9; border: 1px solid #E6E2D8; color: #6E6A60; font-style: italic; pointer-events: none;`;
+  const styleSelected = `background: #E6F6EE; border: 1px solid #6DC597; cursor: pointer; box-shadow: inset 0 0 0 2px rgba(109,197,151,.25);`;
 
-  const fmt = (m) => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
-  const mins = (hhmm) => { const [h,m] = hhmm.split(':').map(Number); return h*60+m };
-
-  // ========= Turnos / grillas =========
-  const TURNO_CANON_MAP = {
-    m: 'm',        manana: 'm',    'mañana': 'm',
-    t: 't',        tarde: 't',
-    v: 'v',        vespertino: 'v', noche: 'v',
-    s: 's',        sabado: 's',     'sábado': 's', 'sabado (manana)': 's'
-  };
-
-  const TURNO_LABEL = {
-    m: 'Mañana',
-    t: 'Tarde',
-    v: 'Vespertino',
-    s: 'Sábado (Mañana)',
-  };
-
+  // --- Configuración de turnos y recreos (formato HH:MM) ---
   const GRILLAS = {
-    manana:     { start: mins('07:45'), end: mins('12:45'),
-                  breaks:[[mins('09:05'),mins('09:15')],[mins('10:35'),mins('10:45')]] },
-    tarde:      { start: mins('13:00'), end: mins('18:00'),
-                  breaks:[[mins('14:20'),mins('14:30')],[mins('15:50'),mins('16:00')]] },
-    vespertino: { start: mins('18:10'), end: mins('23:10'),
-                  breaks:[[mins('19:30'),mins('19:40')],[mins('21:00'),mins('21:10')]] },
-    sabado:     { start: mins('09:00'), end: mins('14:00'),
-                  breaks:[[mins('10:20'),mins('10:30')],[mins('11:50'),mins('12:00')]] },
+    manana: { label: "Mañana", start: "07:45", end: "12:45", breaks: [["09:05","09:15"], ["10:35","10:45"]], },
+    tarde: { label: "Tarde", start: "13:00", end: "18:00", breaks: [["14:20","14:30"], ["15:50","16:00"]], },
+    vespertino: { label: "Vespertino", start: "18:10", end: "23:10", breaks: [["19:30","19:40"], ["21:00","21:10"]], },
+    sabado: { label: "Sábado (Mañana)", start: "09:00", end: "14:00", breaks: [["10:20","10:30"], ["11:50","12:00"]], },
   };
+
   const BLOCK_MIN = 40;
+  const DAYS = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
-  // ========= buscar elementos =========
-  const selTurno = document.querySelector(
-    '#id_turno, select[name="turno"], select[name*="turno" i], select[data-role="turno"]');
-  let tbody = $('#grid-body');
-  let selCount = $('#sel-count');
-  let selTotal = $('#sel-total');
+  let currentSlots = [];
+  let maxSelectable = 0;
 
-  (function ensureTable(){
-    if (tbody) return;
-    console.warn('[grid] No encontré #grid-body; genero tabla automáticamente');
-    const target = $('#grid-auto-anchor') || $('.panel, .container, main') || document.body;
-    const wrap = document.createElement('div');
-    wrap.innerHTML = `
-        <table id="grid-table" class="tabla grid">
-          <thead>
-            <tr>
-              <th style="width:110px">Hora</th>
-              <th>Lunes</th><th>Martes</th><th>Miércoles</th>
-              <th>Jueves</th><th>Viernes</th><th>Sábado</th>
-            </tr>
-          </thead>
-          <tbody id="grid-body"></tbody>
-        </table>
-        <div class="muted" style="margin-top:8px">
-          Bloques seleccionados: <b id="sel-count">0</b> / <b id="sel-total">0</b>
-        </div>`;
-    target.appendChild(wrap);
-    tbody = $('#grid-body');
-    selCount = $('#sel-count');
-    selTotal = $('#sel-total');
-  })();
+  const toMinutes = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h*60 + m; };
+  const fmt = (min) => { const h = Math.floor(min/60); const m = min % 60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; };
 
-  // ========= sembrar/limpiar opciones de turno =========
-  // normaliza texto: minúsculas, sin tildes, sin paréntesis/espacios
-  function normKey(s) {
-    return String(s ?? '')
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[()]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  // obtiene el código canónico a partir de item de API o string
-  function turnoCanonCode(item) {
-    const raw = (item?.slug ?? item?.id ?? item?.value ?? item ?? '').toString();
-    const k = normKey(raw);
-    return TURNO_CANON_MAP[k] ?? k;
-  }
-
-  function populateTurnos(selectEl, items) {
-    selectEl.innerHTML = '';
-    selectEl.add(new Option('---------', ''));
-
-    const seen = new Set();
-    for (const it of (items || [])) {
-      const code = turnoCanonCode(it);
-      if (!code || seen.has(code)) continue;
-      seen.add(code);
-
-      const label = TURNO_LABEL[code] ?? (it?.nombre ?? String(it));
-      selectEl.add(new Option(label, code)); // Usamos el código canónico como value
+  function buildSlots(turnoCfg) {
+    const start = toMinutes(turnoCfg.start), end = toMinutes(turnoCfg.end);
+    const breaks = turnoCfg.breaks.map(([a,b]) => [toMinutes(a), toMinutes(b)]).sort((x,y)=>x[0]-y[0]);
+    const slots = [];
+    let cur = start;
+    for (const [bStart, bEnd] of breaks) {
+      while (cur + BLOCK_MIN <= bStart) { slots.push({from: cur, to: cur + BLOCK_MIN, isBreak: false}); cur += BLOCK_MIN; }
+      if (cur < bStart) cur = bStart;
+      slots.push({from: bStart, to: bEnd, isBreak: true});
+      cur = bEnd;
     }
+    while (cur + BLOCK_MIN <= end) { slots.push({from: cur, to: cur + BLOCK_MIN, isBreak: false}); cur += BLOCK_MIN; }
+    return slots;
   }
 
-  function loadTurnosOnce(itemsFromApi) {
-    if (!selTurno || selTurno.dataset.loaded === '1') return;
+  function ensureInfoAndTable() {
+    let host = document.getElementById("ah-grid");
+    if (!host) { host = document.body; }
 
-    const fallback = [{id: 'm'}, {id: 't'}, {id: 'v'}, {id: 's'}];
-    const items = Array.isArray(itemsFromApi) && itemsFromApi.length ? itemsFromApi : fallback;
-
-    populateTurnos(selTurno, items);
-    selTurno.dataset.loaded = '1';
-  }
-
-  // ========= construir filas =========
-  function buildRows(turnoKey) {
-    const g = GRILLAS[turnoKey];
-    if (!g) return [];
-    const rows = [];
-    let t = g.start;
-
-    const inBreak = (m) => g.breaks.find(([b]) => b === m);
-    const nextBreak = (m) => g.breaks.find(([b]) => b > m);
-
-    while (t < g.end) {
-      const br = inBreak(t);
-      if (br) { rows.push({type:'break', start:br[0], end:br[1]}); t = br[1]; continue; }
-      const nb = nextBreak(t);
-      const end = Math.min(t + BLOCK_MIN, nb ? nb[0] : g.end);
-      rows.push({type:'block', start:t, end:end});
-      t = end;
+    let info = document.getElementById("ah-info");
+    if (!info) {
+      info = document.createElement("div");
+      info.id = "ah-info";
+      info.style.margin = "6px 0 12px";
+      info.innerHTML = `Bloques seleccionados: <strong id="ah-count">0</strong> / <span id="ah-max">0</span>`;
+      host.appendChild(info);
     }
-    return rows;
+
+    let table = document.getElementById("ah-grid-table");
+    if (!table) {
+      table = document.createElement("table");
+      table.id = "ah-grid-table";
+      table.style.width = "100%";
+      table.style.tableLayout = "fixed";
+      table.style.borderCollapse = "separate";
+      table.style.borderSpacing = "10px 8px";
+
+      const thead = document.createElement("thead");
+      const hr = document.createElement("tr");
+      const th0 = document.createElement("th");
+      th0.textContent = "Hora";
+      th0.style.width = "150px";
+      th0.style.textAlign = "left";
+      hr.appendChild(th0);
+      for (const d of DAYS) { const th = document.createElement("th"); th.textContent = d; th.style.textAlign = "center"; hr.appendChild(th); }
+      thead.appendChild(hr);
+
+      const tbody = document.createElement("tbody");
+      tbody.id = "ah-grid-body";
+      tbody.addEventListener("click", onCellClick);
+
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      host.appendChild(table);
+    }
+    return {tbody: document.getElementById("ah-grid-body")};
   }
 
-  function clearGrid(){ if (tbody) tbody.innerHTML = ''; }
+  function clearNode(n){ while(n && n.firstChild) n.removeChild(n.firstChild); }
 
-  function renderGrid(rows){
-    clearGrid();
-    if (!tbody) return;
-    let total = 0;
+  function renderGrid(turnoKey) {
+    const cfg = GRILLAS[turnoKey];
+    if (!cfg) return;
 
-    rows.forEach(r => {
-      const tr = document.createElement('tr');
+    const {tbody} = ensureInfoAndTable();
+    clearNode(tbody);
 
-      const tdL = document.createElement('td');
-      tdL.className = r.type === 'break' ? 'recreo' : 'hora';
-      tdL.textContent = r.type === 'break'
-        ? `Recreo ${fmt(r.start)} - ${fmt(r.end)}`
-        : `${fmt(r.start)} - ${fmt(r.end)}`;
-      tr.appendChild(tdL);
+    currentSlots = buildSlots(cfg);
+    maxSelectable = currentSlots.filter(s => !s.isBreak).length * DAYS.length;
+    document.getElementById("ah-max").textContent = maxSelectable;
+    updateCount();
 
-      for (let day=1; day<=6; day++){
-        const td = document.createElement('td');
-        if (r.type === 'break') {
-          td.className = 'celda recreo';
-          td.style.opacity = .45;
-          td.style.pointerEvents = 'none';
+    for (const slot of currentSlots) {
+      const tr = document.createElement("tr");
+      const tdTime = document.createElement("td");
+      tdTime.textContent = `${fmt(slot.from)} – ${fmt(slot.to)}`;
+      tdTime.style.cssText = `font-weight: 600; color: #5B5141; border: 0; background: transparent;`;
+      tr.appendChild(tdTime);
+
+      for (let dayIdx=0; dayIdx<DAYS.length; dayIdx++) {
+        const td = document.createElement("td");
+        td.className = "ah-cell";
+        if (slot.isBreak) {
+          td.textContent = "Recreo";
+          td.classList.add("ah-break");
+          td.style.cssText = styleBase + styleBreak;
         } else {
-          td.className = 'celda slot';
-          td.dataset.day   = String(day);
-          td.dataset.start = String(r.start);
-          td.dataset.end   = String(r.end);
-          td.addEventListener('click', () => { td.classList.toggle('sel'); updateCounter(); });
-          total++;
+          td.dataset.day  = String(dayIdx);
+          td.classList.add("ah-clickable");
+          td.style.cssText = styleBase + styleClickable;
         }
         tr.appendChild(td);
       }
       tbody.appendChild(tr);
+    }
+  }
+
+  function updateCount() {
+    const countEl = document.getElementById("ah-count");
+    if (!countEl) return;
+    countEl.textContent = document.querySelectorAll("#ah-grid-body td.is-selected").length;
+  }
+
+  function onCellClick(ev) {
+    const cell = ev.target.closest("td.ah-clickable");
+    if (!cell) return;
+    const isSelected = cell.classList.toggle("is-selected");
+    cell.style.cssText = styleBase + (isSelected ? styleSelected : styleClickable);
+    updateCount();
+  }
+
+  function seedTurnoOptions() {
+    const sel = document.getElementById("id_turno");
+    if (!sel) return null;
+    if (sel.options.length > 1) return sel;
+    sel.innerHTML = "";
+    const opt0 = document.createElement("option");
+    opt0.value = ""; opt0.textContent = "--------"; sel.appendChild(opt0);
+    for (const [key, cfg] of Object.entries(GRILLAS)) { const opt = document.createElement("option"); opt.value = key; opt.textContent = cfg.label; sel.appendChild(opt); }
+    return sel;
+  }
+
+  function turnoKeyFromSelectValue(val) {
+    if (!val) return null;
+    if (GRILLAS[val]) return val;
+    const entry = Object.entries(GRILLAS).find(([,cfg]) => cfg.label === val);
+    return entry ? entry[0] : null;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const selTurno = seedTurnoOptions();
+    if (!selTurno) return;
+    const key0 = turnoKeyFromSelectValue(selTurno.value);
+    if (key0) renderGrid(key0);
+    selTurno.addEventListener("change", (e) => {
+      const key = turnoKeyFromSelectValue(e.target.value);
+      if (!key) { const {tbody} = ensureInfoAndTable(); clearNode(tbody); currentSlots = []; maxSelectable = 0; document.getElementById("ah-max").textContent = "0"; updateCount(); return; }
+      renderGrid(key);
     });
-
-    if (selTotal) selTotal.textContent = String(total);
-    updateCounter();
-  }
-
-  function updateCounter(){
-    if (!selCount) return;
-    selCount.textContent = String($$('.celda.slot.sel').length);
-  }
-
-  function selectedTurnoKey(){
-    if (!selTurno) return null;
-    const opt = selTurno.options[selTurno.selectedIndex];
-    const val = (opt?.value || '').trim();
-    if (val && GRILLAS[val]) return val;
-    const label = (opt?.text || '').trim();
-    return LABEL2KEY[label] || null;
-  }
-
-  function refreshGrid(){
-    const key = selectedTurnoKey();
-    if (!key) { clearGrid(); if (selTotal) selTotal.textContent = '0'; updateCounter(); return; }
-    const rows = buildRows(key);
-    renderGrid(rows);
-  }
-
-  // estilos mínimos
-  (function injectStyles(){
-    if (document.getElementById('grid-inline-css')) return;
-    const style = document.createElement('style');
-    style.id = 'grid-inline-css';
-    style.textContent = `
-      #grid-table{width:100%;border-collapse:separate;border-spacing:0 6px} 
-      #grid-table thead th{text-align:center;font-weight:600;color:#5b5b5b} 
-      #grid-table td.hora{font-weight:600;color:#5d5d3a;white-space:nowrap} 
-      #grid-table td.celda{height:44px;border:1px dashed #e1d7c5;border-radius:10px;background:#fffdfa} 
-      #grid-table td.celda.slot:hover{outline:2px solid rgba(197,119,60,.35);cursor:pointer} 
-      #grid-table td.celda.sel{background:#f2e4d8;border-color:#cc8a54;box-shadow:inset 0 0 0 2px rgba(204,138,84,.55)} 
-      #grid-table td.recreo{color:#9a7d5c;font-style:italic} 
-    `;
-    document.head.appendChild(style);
-  })();
-
-  // ========= init =========
-  document.addEventListener('DOMContentLoaded', () => {
-    seedTurnoOptionsIfNeeded();
-    on(selTurno, 'change', refreshGrid);
-    refreshGrid();
   });
 })();

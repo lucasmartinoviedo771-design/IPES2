@@ -45,7 +45,7 @@ urlpatterns = [
     path("api/materias/", views_api.api_materias, name="api_materias"),
     path("api/docentes/", views_api.api_docentes, name="api_docentes"),
     
-    path("api/turnos/", views_api.api_turnos, name="api_turnos"),
+    path("api/turnos", views_api.api_turnos, name="api_turnos"),
     path("api/horarios-ocupados/", views_api.api_horarios_ocupados, name="api_horarios_ocupados"),
     path("api/cohortes", api.api_cohortes_por_plan, name="api_cohortes"),
     path("api/correlatividades", api.api_correlatividades_por_espacio, name="api_correlatividades_por_espacio"),
