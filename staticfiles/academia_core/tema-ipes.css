@@ -223,3 +223,83 @@ label{ color:#3b3b3b; font-size:14px }
 
 /* ocupar el ancho completo dentro de .form-grid-2 */
 .grid-span-2{ grid-column:1 / -1; }
+
+/* =========================
+   Layout – Overrides visuales
+   ========================= */
+
+/* 1) Topbar más “gruesa” + título más grande */
+.topbar{
+  padding: 18px 24px;                /* antes 10–12 px aprox */
+  min-height: 72px;                  /* fuerza la altura visual */
+}
+.topbar .left a,
+.topbar .left .brand{
+  font-size: 1.35rem;                /* + ~35% (ajustá si querés) */
+  font-weight: 600;
+}
+
+/* 2) Sidebar ~15% más ancha */
+.app{
+  /* si en tu CSS original tenías grid-template-columns: 260px 1fr; */
+  grid-template-columns: 300px 1fr;  /* ~+15% de ancho */
+}
+
+/* 3) Logo 3x y texto IPES Paulo Freire 2x (aprox) */
+.sidebar .logo{
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  font-size: 1.8rem;                 /* ~2x respecto a lo típico */
+  line-height: 1.2;
+}
+.sidebar .logo img{
+  height: 64px;                      /* ~3x el tamaño usual (ajustá 56–72) */
+  width: auto;
+}
+
+/* 4) Submenús con sangría (cascada visible) */
+.nav ul ul,              /* sub-UL genérico */
+.nav .submenu{           /* por si usás .submenu en tus plantillas */
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 2px dashed var(--border, #ddd);
+}
+.nav details[open] > summary,
+.nav li[aria-expanded="true"] > a{
+  background: rgba(0,0,0,.04);
+}
+
+/* 5) Panel central “lleno” (sin espacios muertos) */
+.main{
+  padding: 28px;                     /* un pelo más de aire */
+}
+.container{
+  max-width: none;                   /* elimina el límite ~1120px */
+  padding-left: 0;
+  padding-right: 0;
+}
+.panel{
+  width: 100%;                       /* que use todo el ancho */
+}
+
+/* 6) Pequeños refinamientos de tipografía */
+.sidebar .nav a{
+  font-size: .995rem;
+}
+
+/* 7) Responsive – en pantallas chicas mantenemos todo legible */
+ @media (max-width: 1200px){
+  .app{ grid-template-columns: 280px 1fr; }
+}
+ @media (max-width: 992px){
+  .topbar{ min-height: 64px; padding: 14px 16px; }
+  .sidebar .logo img{ height: 56px; }
+  .sidebar .logo{ font-size: 1.5rem; }
+  .app{ grid-template-columns: 240px 1fr; }
+}
+ @media (max-width: 768px){
+  .app{ grid-template-columns: 1fr; }   /* sidebar colapsa arriba si tu layout lo soporta */
+  .main{ padding: 20px; }
+  .container{ padding-left: 0; padding-right: 0; }
+}

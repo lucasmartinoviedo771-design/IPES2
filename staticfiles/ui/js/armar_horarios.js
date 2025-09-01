@@ -1,9 +1,10 @@
 /* ui/static/ui/js/armar_horarios.js
    Arma la grilla de horarios y aplica todos los estilos visuales directamente
    para evitar conflictos con hojas de estilo externas.
+   Features: Autosave y refresco automático.
 */
 (() => {
-  // --- Definición de Estilos --- (Aplicados directamente a los elementos)
+  // --- Estilos ---
   const styleBase = `height: 46px; border-radius: 12px; text-align: center; vertical-align: middle; padding: 0; transition: background .12s ease, border-color .12s ease;`;
   const styleClickable = `background: #F7F4EE; border: 1px solid #E6E2D8; cursor: pointer;`;
   const styleBreak = `background: #F4F1E9; border: 1px solid #E6E2D8; color: #6E6A60; font-style: italic; pointer-events: none;`;
@@ -20,8 +21,23 @@
   const BLOCK_MIN = 40;
   const DAYS = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
-  let currentSlots = [];
-  let maxSelectable = 0;
+  // --- Endpoints y Helpers ---
+  const API_GRID   = window.API_GRID;
+  const API_TOGGLE = window.API_TOGGLE;
+
+  function getCSRFToken() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+
+  function currentCombo() {
+    return {
+      carrera: document.getElementById("id_carrera")?.value || "",
+      plan:    document.getElementById("id_plan")?.value    || "",
+      materia: document.getElementById("id_materia")?.value || "",
+      turno:   document.getElementById("id_turno")?.value   || "",
+    };
+  }
 
   const toMinutes = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h*60 + m; };
   const fmt = (min) => { const h = Math.floor(min/60); const m = min % 60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; };
@@ -45,15 +61,6 @@
     let host = document.getElementById("ah-grid");
     if (!host) { host = document.body; }
 
-    let info = document.getElementById("ah-info");
-    if (!info) {
-      info = document.createElement("div");
-      info.id = "ah-info";
-      info.style.margin = "6px 0 12px";
-      info.innerHTML = `Bloques seleccionados: <strong id="ah-count">0</strong> / <span id="ah-max">0</span>`;
-      host.appendChild(info);
-    }
-
     let table = document.getElementById("ah-grid-table");
     if (!table) {
       table = document.createElement("table");
@@ -75,8 +82,7 @@
 
       const tbody = document.createElement("tbody");
       tbody.id = "ah-grid-body";
-      tbody.addEventListener("click", onCellClick);
-
+      
       table.appendChild(thead);
       table.appendChild(tbody);
       host.appendChild(table);
@@ -86,17 +92,16 @@
 
   function clearNode(n){ while(n && n.firstChild) n.removeChild(n.firstChild); }
 
-  function renderGrid(turnoKey) {
+  async function renderGrid(turnoKey) {
     const cfg = GRILLAS[turnoKey];
     if (!cfg) return;
 
     const {tbody} = ensureInfoAndTable();
     clearNode(tbody);
 
-    currentSlots = buildSlots(cfg);
-    maxSelectable = currentSlots.filter(s => !s.isBreak).length * DAYS.length;
-    document.getElementById("ah-max").textContent = maxSelectable;
-    updateCount();
+    const currentSlots = buildSlots(cfg);
+    const maxSelectable = currentSlots.filter(s => !s.isBreak).length * DAYS.length;
+    updateCount(0, maxSelectable);
 
     for (const slot of currentSlots) {
       const tr = document.createElement("tr");
@@ -113,7 +118,8 @@
           td.classList.add("ah-break");
           td.style.cssText = styleBase + styleBreak;
         } else {
-          td.dataset.day  = String(dayIdx);
+          td.dataset.day  = String(dayIdx + 1);
+          td.dataset.hhmm = fmt(slot.from);
           td.classList.add("ah-clickable");
           td.style.cssText = styleBase + styleClickable;
         }
@@ -121,36 +127,141 @@
       }
       tbody.appendChild(tr);
     }
+    
+    tbody.removeEventListener("click", onCellClick);
+    tbody.addEventListener("click", onCellClick);
+
+    await syncFromServer();
   }
 
-  function updateCount() {
-    const countEl = document.getElementById("ah-count");
+  function findCell(day, hhmm) {
+    return document.querySelector(`#ah-grid-body td[data-day='${day}'][data-hhmm='${hhmm}']`);
+  }
+
+  function selectCell(cell, selected, {skipSave = false} = {}) {
+      if (!cell) return;
+      cell.classList.toggle("on", selected);
+      cell.style.cssText = styleBase + (selected ? styleSelected : styleClickable);
+  }
+
+  function clearAllSelected() {
+    document.querySelectorAll("#ah-grid-body td.on").forEach(td => {
+      selectCell(td, false, {skipSave: true});
+    });
+  }
+
+  function updateCount(count, max) {
+    const countEl = document.getElementById("block-counter");
     if (!countEl) return;
-    countEl.textContent = document.querySelectorAll("#ah-grid-body td.is-selected").length;
+    
+    let total = max;
+    if (total === undefined) {
+        const currentText = countEl.textContent || "";
+        const maxMatch = currentText.match(/\/ (\d+)/);
+        total = maxMatch ? maxMatch[1] : '?';
+    }
+    countEl.textContent = `Bloques: ${count} / ${total}`;
   }
 
+  async function syncFromServer({silent=false}={}) {
+    const combo = currentCombo();
+    if (!combo.carrera || !combo.plan || !combo.materia || !combo.turno) return;
+
+    const u = new URL(API_GRID, window.location.origin);
+    u.searchParams.set("carrera", combo.carrera);
+    u.searchParams.set("plan",    combo.plan);
+    u.searchParams.set("materia", combo.materia);
+    u.searchParams.set("turno",   combo.turno);
+
+    try {
+      const res = await fetch(u, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const json = await res.json();
+
+      clearAllSelected();
+      json.slots.forEach(({d, hhmm}) => {
+        const td = findCell(d, hhmm);
+        td && selectCell(td, true, {skipSave:true});
+      });
+
+      updateCount(json.count);
+      if (!silent) showSavedBadge("Sincronizado");
+    } catch (e) {
+      console.error("Sync failed", e);
+      if (!silent) showSavedBadge("Sin conexión", true);
+    }
+  }
+
+  async function persistToggle(day, hhmm, selected) {
+    const combo = currentCombo();
+    if (!combo.carrera || !combo.plan || !combo.materia || !combo.turno) return;
+
+    showSavingBadge();
+
+    try {
+      const res = await fetch(API_TOGGLE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken(),
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: JSON.stringify({...combo, day, hhmm, selected}),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Error de guardado");
+
+      updateCount(json.count);
+      showSavedBadge("Guardado");
+    } catch (e) {
+      console.error("Persist failed", e);
+      const td = findCell(day, hhmm);
+      td && selectCell(td, !selected, {skipSave:true}); // Revert
+      const errorMessage = e instanceof Error ? e.message : "Error al guardar";
+      showSavedBadge(errorMessage, true);
+    }
+  }
+  
   function onCellClick(ev) {
     const cell = ev.target.closest("td.ah-clickable");
     if (!cell) return;
-    const isSelected = cell.classList.toggle("is-selected");
-    cell.style.cssText = styleBase + (isSelected ? styleSelected : styleClickable);
-    updateCount();
+    
+    const day  = cell.dataset.day;
+    const hhmm = cell.dataset.hhmm;
+    const willBeSelected = !cell.classList.contains("on");
+
+    selectCell(cell, willBeSelected, {skipSave:true}); // Optimistic update
+    const currentSelected = document.querySelectorAll("#ah-grid-body td.on").length;
+    updateCount(currentSelected);
+    persistToggle(parseInt(day,10), hhmm, willBeSelected);
+  }
+
+  let saveTimer;
+  function showSavingBadge() {
+    const el = document.getElementById("save-indicator");
+    if (!el) return;
+    el.textContent = "Guardando…";
+    el.style.color = "#6b7280";
+  }
+
+  function showSavedBadge(msg="Guardado", error=false) {
+    const el = document.getElementById("save-indicator");
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = error ? "#b91c1c" : "#0f766e";
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { el.textContent = ""; }, 2500);
   }
 
   function seedTurnoOptions() {
     const sel = document.getElementById("id_turno");
     if (!sel) return null;
-
-    // ¿Está realmente poblado? (todas las opciones con texto/label)
-    const hasRealOptions = Array.from(sel.options)
-      .some(o => o.value && o.textContent && o.textContent.trim() !== "");
-
-    if (!hasRealOptions) { // Replaced the old check
+    const hasRealOptions = Array.from(sel.options).some(o => o.value && o.textContent && o.textContent.trim() !== "");
+    if (!hasRealOptions) {
       sel.innerHTML = "";
-      const opt0 = new Option("---------", ""); // Use new Option constructor
-      sel.add(opt0);
+      sel.add(new Option("---------", ""));
       for (const [key, cfg] of Object.entries(GRILLAS)) {
-        sel.add(new Option(cfg.label, key)); // Use new Option constructor
+        sel.add(new Option(cfg.label, key));
       }
     }
     return sel;
@@ -169,32 +280,17 @@
     const selMateria = document.getElementById('id_materia');
     const selTurno = document.getElementById('id_turno');
 
-    // Set initial values from Django context
-    if (selCarrera && typeof initialSelectedCarreraId !== 'undefined' && initialSelectedCarreraId) {
-        selCarrera.value = initialSelectedCarreraId;
-    }
-    if (selPlan && typeof initialSelectedPlanId !== 'undefined' && initialSelectedPlanId) {
-        selPlan.value = initialSelectedPlanId;
-    }
-    if (selMateria && typeof initialSelectedMateriaId !== 'undefined' && initialSelectedMateriaId) {
-        selMateria.value = initialSelectedMateriaId;
-    }
-    if (selTurno && typeof initialSelectedTurnoValue !== 'undefined' && initialSelectedTurnoValue) {
-        selTurno.value = initialSelectedTurnoValue;
-    }
+    if (selCarrera && typeof initialSelectedCarreraId !== 'undefined' && initialSelectedCarreraId) { selCarrera.value = initialSelectedCarreraId; }
+    if (selPlan && typeof initialSelectedPlanId !== 'undefined' && initialSelectedPlanId) { selPlan.value = initialSelectedPlanId; }
+    if (selMateria && typeof initialSelectedMateriaId !== 'undefined' && initialSelectedMateriaId) { selMateria.value = initialSelectedMateriaId; }
+    if (selTurno && typeof initialSelectedTurnoValue !== 'undefined' && initialSelectedTurnoValue) { selTurno.value = initialSelectedTurnoValue; }
 
-    // The cascade (updatePlanes/updateMaterias) is handled by the first script block
-    // in cargar_horario.html, which listens to 'change' events.
-    // We just need to trigger a 'change' event on selCarrera if it has an initial value.
     if (selCarrera && selCarrera.value) {
         selCarrera.dispatchEvent(new Event('change'));
     }
 
-
-    // Seed turno options (now more robust)
     seedTurnoOptions();
 
-    // Render initial grid if a turno is selected
     if (selTurno && selTurno.value) {
         const key0 = turnoKeyFromSelectValue(selTurno.value);
         if (key0) renderGrid(key0);
@@ -202,13 +298,22 @@
 
     selTurno.addEventListener("change", (e) => {
       const key = turnoKeyFromSelectValue(e.target.value);
+      const {tbody} = ensureInfoAndTable();
+      clearNode(tbody);
       if (!key) {
-        const {tbody} = ensureInfoAndTable();
-        clearNode(tbody); currentSlots = []; maxSelectable = 0;
-        document.getElementById("ah-max").textContent = "0"; updateCount();
+        updateCount(0, 0);
         return;
       }
       renderGrid(key);
     });
+
+    // Polling for auto-refresh
+    setInterval(() => { 
+        // Solo sincroniza si hay una selección válida
+        const combo = currentCombo();
+        if (combo.carrera && combo.plan && combo.materia && combo.turno) {
+            syncFromServer({silent:true}); 
+        }
+    }, 10000);
   });
 })();
