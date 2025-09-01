@@ -132,37 +132,23 @@ class HorarioDeleteView(DeleteView):
         return reverse("panel_comision", args=[self.object.comision_id])
 
 # New cargar_horario view
-from academia_core.models import Profesorado, Aula
+from academia_core.models import PlanEstudios, Profesorado, Aula, EspacioCurricular, Docente, Materia
+from .models import TurnoModel
 
 @transaction.atomic
 def cargar_horario(request):
+    # La lógica POST se manejará vía API
     if request.method == 'POST':
-        carrera_id  = request.POST.get('carrera')
-        plan_id     = request.POST.get('plan')
-        materia_id  = request.POST.get('materia')
-        turno       = request.POST.get('turno')
-        seccion     = request.POST.get('seccion', 'A') # Retrieve seccion, default to 'A'
-        docente_id  = request.POST.get('docente') or None
-        aula_id     = request.POST.get('aula') or None
-        obs         = request.POST.get('observaciones','')
-        slots       = json.loads(request.POST.get('slots','[]'))
-
-        # Validaciones de negocio (horas máximas, choques, etc) también en el Form/Model.clean()
-        for s in slots:
-            Horario.objects.create(
-                carrera_id=carrera_id, plan_id=plan_id, materia_id=materia_id,
-                turno=turno, seccion=seccion, # Added seccion
-                docente_id=docente_id, aula_id=aula_id,
-                dia=s['dia'], hora_inicio=s['ini'], hora_fin=s['fin'],
-                observaciones=obs, activo=True
-            )
-
-        messages.success(request, f'Se cargaron {len(slots)} franjas para la materia.')
-        return redirect('academia_horarios:panel_oferta')
+        # Aquí se guardaría la Catedra y sus CatedraHorario
+        # Por ahora, redirigimos o mostramos un mensaje.
+        messages.info(request, "El guardado se implementará en el siguiente paso.")
+        return redirect('cargar_horario')
 
     # GET: contexto para combos iniciales
     carreras = Profesorado.objects.all().order_by('nombre')
     aulas = Aula.objects.all().order_by('nombre')
+    turnos = TurnoModel.objects.all().order_by('id') # Usamos el nuevo modelo
+
     return render(request, 'academia_horarios/cargar_horario.html', {
         'carreras': carreras,
         'aulas': aulas,

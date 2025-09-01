@@ -275,3 +275,62 @@ def dentro_de_jornada(turno: str, inicio: time, fin: time) -> bool:
 
 def minutos(ts: TimeSlot) -> int:
     return _mins(ts.fin) - _mins(ts.inicio)
+
+
+# =============================================================================
+# NUEVOS MODELOS PARA GESTION DE HORARIOS (propuesta escalable)
+# =============================================================================
+
+class TurnoModel(models.Model):
+    nombre = models.CharField(max_length=50)
+    slug   = models.SlugField(unique=True)
+
+    def __str__(self):
+        return self.nombre
+
+class Bloque(models.Model):
+    turno       = models.ForeignKey(TurnoModel, on_delete=models.CASCADE)
+    dia_semana  = models.IntegerField(choices=[(0,'Lun'),(1,'Mar'),(2,'Mié'),(3,'Jue'),(4,'Vie'),(5,'Sáb')])
+    orden       = models.IntegerField()
+    inicio      = models.TimeField()
+    fin         = models.TimeField()
+    es_recreo   = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('turno','dia_semana','orden')
+
+    def __str__(self):
+        return f"{self.get_dia_semana_display()} {self.inicio:%H:%M}-{self.fin:%H:%M}"
+
+class Catedra(models.Model):
+    materia_en_plan = models.ForeignKey(MateriaEnPlan, on_delete=models.CASCADE)
+    comision        = models.ForeignKey(Comision, on_delete=models.CASCADE)
+    turno           = models.ForeignKey(TurnoModel, on_delete=models.PROTECT)
+    horas_semanales = models.PositiveSmallIntegerField()
+    permite_solape_interno = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.materia_en_plan} / {self.comision.nombre}"
+
+class CatedraHorario(models.Model):
+    catedra = models.ForeignKey(Catedra, on_delete=models.CASCADE, related_name='bloques')
+    bloque  = models.ForeignKey(Bloque, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('catedra','bloque')
+
+class DocenteAsignacion(models.Model):
+    CONDICION = (('INTERINO','Interino'), ('SUPLENTE','Suplente'))
+    catedra     = models.ForeignKey(Catedra, on_delete=models.CASCADE, related_name='asignaciones')
+    docente     = models.ForeignKey('academia_core.Docente', on_delete=models.PROTECT)
+    condicion   = models.CharField(max_length=10, choices=CONDICION)
+    fecha_desde = models.DateField()
+    fecha_hasta = models.DateField(null=True, blank=True)
+    activa      = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.docente} en {self.catedra} ({self.get_condicion_display()})"
+
+class DocenteCobertura(models.Model):
+    asignacion = models.ForeignKey(DocenteAsignacion, on_delete=models.CASCADE, related_name='coberturas')
+    bloque     = models.ForeignKey(Bloque, on_delete=models.CASCADE)

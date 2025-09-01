@@ -1,24 +1,20 @@
+import logging
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.db.models import Value, F
 from django.db.models.functions import Concat
-import traceback
 
 # Importaciones de modelos necesarios
-from academia_core.models import PlanEstudios, Profesorado, EspacioCurricular, Docente
-from academia_horarios.models import Horario, MateriaEnPlan
+from academia_core.models import PlanEstudios, EspacioCurricular, Docente
+from academia_horarios.models import Horario, Bloque, TurnoModel
+
+logger = logging.getLogger(__name__)
 
 @require_GET
 def api_planes(request):
     carrera_id = request.GET.get('carrera')
     qs = PlanEstudios.objects.filter(profesorado_id=carrera_id, vigente=True).order_by('nombre').values('id', 'nombre') if carrera_id else []
     return JsonResponse({'results': list(qs)}, status=200)
-
-import logging
-from django.http import JsonResponse
-from django.views.decorators.http import require_GET
-
-logger = logging.getLogger(__name__)
 
 @require_GET
 def api_materias(request):
@@ -62,26 +58,39 @@ def api_docentes(request):
                   .order_by('apellido', 'nombre'))
             results = list(qs)
         except Exception as e:
-            traceback.print_exc()
+            logger.error("api_docentes error: %s", e, exc_info=True)
             return JsonResponse({'results': [], 'error': str(e)}, status=500)
             
     return JsonResponse({'results': results}, status=200)
 
+
+
+@require_GET
+def api_turnos(request):
+    turnos = TurnoModel.objects.all().order_by('id').values('id', 'slug', 'nombre')
+    return JsonResponse({'results': list(turnos)})
+
+
 @require_GET
 def api_horarios_ocupados(request):
     # params: turno, docente?, aula?
-    turno = request.GET.get('turno')
+    turno_slug = request.GET.get('turno') # El JS actual manda el slug
     docente_id = request.GET.get('docente') or None
     aula_id    = request.GET.get('aula') or None
 
     ocupados = []
-    if turno:
-        qs = Horario.objects.filter(turno=turno, activo=True)
-        
-        if docente_id:
-            ocupados.extend(list(qs.filter(docente_id=docente_id).values('dia', 'hora_inicio', 'hora_fin')))
+    if turno_slug:
+        try:
+            # Asumo que el modelo Horario usa el CharField de Turno, no el nuevo TurnoModel
+            qs = Horario.objects.filter(turno=turno_slug, activo=True)
+            
+            if docente_id:
+                ocupados.extend(list(qs.filter(docente_id=docente_id).values('dia', 'hora_inicio', 'hora_fin')))
 
-        if aula_id:
-            ocupados.extend(list(qs.filter(aula_id=aula_id).values('dia', 'hora_inicio', 'hora_fin')))
+            if aula_id:
+                ocupados.extend(list(qs.filter(aula_id=aula_id).values('dia', 'hora_inicio', 'hora_fin')))
+        except Exception as e:
+            logger.error("api_horarios_ocupados error: %s", e, exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({"ocupados": ocupados})
